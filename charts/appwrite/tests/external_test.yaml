@@ -1,0 +1,216 @@
+suite: external datastores
+templates:
+  - templates/configmap-env.yaml
+  - templates/api/deployment.yaml
+  - templates/secret.yaml
+  - templates/postgresql/statefulset.yaml
+release:
+  name: aw
+values:
+  - values/required.yaml
+set:
+  database.mode: external
+  redis.mode: external
+  clickhouse.mode: external
+  database.external.host: pg.example.com
+  database.password.secretName: db
+  database.password.secretKey: password
+  redis.external.host: redis.example.com
+  redis.password.secretName: redis
+  clickhouse.external.url: https://ch.example.com
+  clickhouse.password.secretName: ch
+tests:
+  - it: points Appwrite at the external services
+    template: templates/configmap-env.yaml
+    asserts:
+      - isSubset:
+          path: data
+          content:
+            _APP_DB_ADAPTER: postgresql
+            _APP_DB_HOST: pg.example.com
+            _APP_DB_PORT: "5432"
+            _APP_REDIS_HOST: redis.example.com
+            _APP_REDIS_PORT: "6379"
+
+  - it: uses the standard port of the engine
+    template: templates/configmap-env.yaml
+    set:
+      database.adapter: mariadb
+    asserts:
+      - equal:
+          path: data._APP_DB_PORT
+          value: "3306"
+
+  - it: reads passwords from the existing Secrets
+    template: templates/api/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: _APP_DB_PASS
+            valueFrom:
+              secretKeyRef: {name: db, key: password}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: _APP_REDIS_PASS
+            valueFrom:
+              secretKeyRef: {name: redis, key: redis-password}
+
+  - it: builds an HTTPS ClickHouse DSN with the default port
+    template: templates/api/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: _APP_CONNECTIONS_DB_USAGE
+            value: https://appwrite:$(_APP_USAGE_PASS)@ch.example.com:8443/appwrite?secure=true
+
+  - it: waits for the external services
+    template: templates/api/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: WAIT_FOR
+            value: pg.example.com:5432 redis.example.com:6379 ch.example.com:8443
+
+  - it: omits passwords that aren't configured
+    template: templates/api/deployment.yaml
+    set:
+      redis.password.secretName: ""
+      clickhouse.password.secretName: ""
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content: {name: _APP_REDIS_PASS}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: _APP_CONNECTIONS_DB_USAGE
+            value: https://appwrite@ch.example.com:8443/appwrite?secure=true
+
+  - it: stores inline passwords in the chart Secret
+    template: templates/secret.yaml
+    set:
+      database.password.secretName: ""
+      database.password.value: s3cret
+    asserts:
+      - equal:
+          path: data.db-password
+          value: czNjcmV0
+
+  - it: doesn't render the built-in PostgreSQL
+    template: templates/postgresql/statefulset.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: requires a host
+    template: templates/configmap-env.yaml
+    set:
+      database.external.host: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: database.external.host is required
+
+  - it: requires a password
+    template: templates/configmap-env.yaml
+    set:
+      database.password.secretName: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: database.password needs a value or a secretName
+
+  - it: rejects a ClickHouse URL with a path
+    template: templates/configmap-env.yaml
+    set:
+      clickhouse.external.url: https://ch.example.com/appwrite
+    asserts:
+      - failedTemplate:
+          errorPattern: clickhouse.external.url must be an http\(s\) URL
+
+  - it: rejects external settings next to a built-in service
+    template: templates/configmap-env.yaml
+    set:
+      database.mode: builtin
+    asserts:
+      - failedTemplate:
+          errorPattern: database.external.host is set while database.mode is builtin
+
+  - it: enables VectorsDB on the main PostgreSQL
+    template: templates/configmap-env.yaml
+    set:
+      vectorsDb.enabled: true
+    asserts:
+      - isSubset:
+          path: data
+          content:
+            _APP_VECTORSDB: enabled
+            _APP_DB_HOST_VECTORSDB: pg.example.com
+            _APP_DB_PORT_VECTORSDB: "5432"
+
+  - it: enables DocumentsDB on an external MongoDB
+    template: templates/api/deployment.yaml
+    set:
+      documentsDb.enabled: true
+      documentsDb.host: mongo.example.com
+      documentsDb.password.secretName: mongo
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: _APP_DB_PASS_DOCUMENTSDB
+            valueFrom:
+              secretKeyRef: {name: mongo, key: documentsdb-password}
+
+  - it: rejects another engine for the built-in database
+    template: templates/configmap-env.yaml
+    set:
+      database.mode: builtin
+      database.external.host: ""
+      database.adapter: mysql
+    asserts:
+      - failedTemplate:
+          errorPattern: "database.adapter is mysql, but the built-in database is PostgreSQL"
+
+  - it: needs a key name next to a secretName
+    template: templates/configmap-env.yaml
+    set:
+      smtp.password.secretName: appwrite-smtp
+      smtp.password.secretKey: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "smtp.password.secretKey is required with smtp.password.secretName"
+
+  - it: connects to an external Redis without AUTH
+    template: templates/api/deployment.yaml
+    set:
+      redis.mode: external
+      redis.external.host: redis.example.internal
+      redis.password.secretName: ""
+      redis.password.value: ""
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: _APP_REDIS_PASS
+          any: true
+
+  - it: reads an external password from the Secret you name
+    template: templates/api/deployment.yaml
+    set:
+      database.mode: external
+      database.external.host: db.example.internal
+      database.password.secretName: appwrite-external
+      database.password.secretKey: db-password
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: _APP_DB_PASS
+            valueFrom:
+              secretKeyRef:
+                name: appwrite-external
+                key: db-password

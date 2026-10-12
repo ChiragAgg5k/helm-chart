@@ -1,0 +1,255 @@
+# Appwrite Helm chart
+
+{{ template "chart.badgesSection" . }}
+
+{{ template "chart.description" . }}
+
+> [!WARNING]
+> Pre-1.0: values and behaviour may still change between minor versions.
+> Read the [changelog](https://github.com/appwrite/helm-chart/blob/main/CHANGELOG.md) before upgrading.
+
+- Runs Appwrite under the `restricted` Pod Security Standard: non-root,
+  read-only root filesystem, no capabilities. Only the optional build
+  orchestrator gets a ServiceAccount token.
+- Built-in PostgreSQL, Redis and ClickHouse for a one-command install, or
+  your own managed services.
+- Ingress or Gateway API routes for the API, console, realtime, function and
+  site previews and custom domains.
+- Worker topologies from one combined worker to one Deployment per queue.
+- Functions and Sites in the cluster: builds run as unprivileged Jobs in their
+  own namespace, executions on an executor with its own Docker-in-Docker
+  daemon in another namespace (a privileged pod you opt into).
+- Credentials generated once and kept, data migrations on upgrade, and guards
+  against changing the encryption key or downgrading.
+
+## Requirements
+
+- Kubernetes 1.29 or later, with a default StorageClass (or set `global.storageClass`)
+- Helm 4, or Helm 3.18 or later
+- An ingress controller or a Gateway API implementation. Appwrite serves the
+  console and the API on one hostname and needs `/v1` routed to the API.
+- For HTTPS: cert-manager, or certificates you provide
+
+## Quick start
+
+You need an ingress controller, cert-manager with a `ClusterIssuer` named
+`letsencrypt`, and a DNS record for your domain pointing at the ingress
+controller:
+
+```console
+helm install appwrite oci://ghcr.io/appwrite/charts/appwrite \
+  --namespace appwrite --create-namespace \
+  --set appwrite.domain=appwrite.example.com \
+  --set appwrite.certificatesEmail=ops@example.com \
+  --set ingress.enabled=true \
+  --set ingress.tls.enabled=true \
+  --set 'ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt' \
+  --set ingress.wildcard.enabled=false \
+  --wait --timeout 15m
+```
+
+Function and site previews (`ingress.wildcard`) need a wildcard certificate
+from a DNS-01 issuer, so they're off here.
+
+Open `https://appwrite.example.com` and sign up: the first account becomes the
+console administrator. Then **back up the encryption key**:
+
+```console
+kubectl -n appwrite get secret appwrite -o jsonpath='{.data._APP_OPENSSL_KEY_V1}' | base64 -d
+```
+
+To try Appwrite on a laptop first, or for a step-by-step install, see
+[Getting started](https://github.com/appwrite/helm-chart/blob/main/docs/getting-started.md).
+To install a branch, or before the first release is on `ghcr.io`, use
+`./charts/appwrite` from a clone in place of the `oci://` reference
+([installing from source](https://github.com/appwrite/helm-chart/blob/main/docs/getting-started.md#installing-from-source)).
+
+Ready-made values files for a local try-out, a first install, production,
+AWS and Functions and Sites are in
+[`examples/`](https://github.com/appwrite/helm-chart/tree/main/examples).
+
+## Using your own services
+
+Everything Appwrite needs runs in the release by default. Each backing
+service has one block: set its `mode` to `external` and fill in `external`
+to use your own instead; each one is independent. Every credential takes a
+`value`, or a `secretName` and `secretKey` to read it from a Secret you
+manage. Create the Secret first (these key names are the defaults):
+
+```console
+kubectl create namespace appwrite
+kubectl -n appwrite create secret generic appwrite-external \
+  --from-literal=db-password='<PostgreSQL password>' \
+  --from-literal=redis-password='<Redis password>' \
+  --from-literal=clickhouse-password='<ClickHouse password>' \
+  --from-literal=s3-access-key='<access key ID>' \
+  --from-literal=s3-secret-key='<secret access key>' \
+  --from-literal=smtp-password='<SMTP password>'
+```
+
+Then point the chart at your services:
+
+```yaml
+database:                      # PostgreSQL with postgis, vector and pg_trgm
+  mode: external
+  password:
+    secretName: appwrite-external         # key db-password
+  external:
+    host: appwrite-db.example.internal
+redis:                         # one endpoint, no TLS
+  mode: external
+  password:
+    secretName: appwrite-external         # key redis-password
+  external:
+    host: appwrite-redis.example.internal
+clickhouse:                    # HTTP(S) interface
+  mode: external
+  password:
+    secretName: appwrite-external         # key clickhouse-password
+  external:
+    url: https://abc123.eu-west-1.aws.clickhouse.cloud:8443
+storage:
+  device: s3                   # any S3-compatible store
+  s3:
+    bucket: appwrite
+    region: eu-west-1
+    accessKeyId:
+      secretName: appwrite-external       # key s3-access-key
+    secretAccessKey:
+      secretName: appwrite-external       # key s3-secret-key
+smtp:
+  host: smtp.example.com
+  username: appwrite
+  password:
+    secretName: appwrite-external         # key smtp-password
+```
+
+| Service | Works with | Guide |
+| --- | --- | --- |
+| PostgreSQL, MariaDB, MySQL, MongoDB | RDS, Cloud SQL, Azure, CloudNativePG | [External databases](https://github.com/appwrite/helm-chart/blob/main/docs/external-databases.md#postgresql) |
+| Redis | ElastiCache, Memorystore, Azure Cache, Valkey | [External databases](https://github.com/appwrite/helm-chart/blob/main/docs/external-databases.md#redis) |
+| ClickHouse | ClickHouse Cloud, Altinity operator | [External databases](https://github.com/appwrite/helm-chart/blob/main/docs/external-databases.md#clickhouse) |
+| S3 | AWS S3, R2, GCS, Spaces, MinIO, ... | [Storage](https://github.com/appwrite/helm-chart/blob/main/docs/storage.md#s3) |
+| SMTP, GitHub App, console sign-in, SMS, Sentry | SES, SendGrid, Postmark, GitHub, Twilio, ... | [Integrations](https://github.com/appwrite/helm-chart/blob/main/docs/integrations.md) |
+
+[`examples/external-services.yaml`](https://github.com/appwrite/helm-chart/blob/main/examples/external-services.yaml)
+has every block annotated. To move the data of an existing install, see
+[moving from built-in to external](https://github.com/appwrite/helm-chart/blob/main/docs/external-databases.md#moving-from-built-in-to-external).
+
+## Architecture
+
+```mermaid
+flowchart LR
+  user([Browser / SDK]) --> edge{{ "{{" }}Ingress or Gateway{{ "}}" }}
+  edge -- "/v1/realtime" --> realtime[realtime]
+  edge -- "/v1, previews,\ncustom domains" --> api[api]
+  edge -- "everything else" --> console[console]
+
+  api & realtime --> pg[(PostgreSQL)]
+  api & realtime --> redis[(Redis)]
+  redis -- queues --> workers[workers]
+  tasks[scheduler, maintenance,\ninterval] --> redis & pg
+  workers --> pg
+  api & workers --> ch[(ClickHouse)]
+  api & workers --- files[(volume or S3)]
+
+  workers -. "builds" .-> orchestrator[orchestrator] -.-> jobs[[build Jobs]]
+  api & workers -. "executions" .-> executor[[executor on\nDocker-in-Docker]]
+```
+
+See the [architecture guide](https://github.com/appwrite/helm-chart/blob/main/docs/architecture.md).
+
+## Not included
+
+- **Highly available datastores.** The built-in ones are single replicas. Use
+  managed services or operators in production
+  ([guide](https://github.com/appwrite/helm-chart/blob/main/docs/external-databases.md)).
+- **Metrics.** Appwrite 2.3.0 exposes no Prometheus metrics.
+
+## Documentation
+
+| Guide | |
+| --- | --- |
+| [Getting started](https://github.com/appwrite/helm-chart/blob/main/docs/getting-started.md) | A local try-out and a first real install |
+| [Production checklist](https://github.com/appwrite/helm-chart/blob/main/docs/production.md) | What to change before going live |
+| [Architecture](https://github.com/appwrite/helm-chart/blob/main/docs/architecture.md) | Components, configuration flow, worker topologies |
+| [Networking, TLS and domains](https://github.com/appwrite/helm-chart/blob/main/docs/networking.md) | Ingress, Gateway API, cert-manager, custom domains |
+| [External databases](https://github.com/appwrite/helm-chart/blob/main/docs/external-databases.md) | PostgreSQL, MariaDB, MySQL, MongoDB, Redis, ClickHouse |
+| [Storage](https://github.com/appwrite/helm-chart/blob/main/docs/storage.md) | Volumes, ReadWriteMany, S3, antivirus |
+| [Email, Git and other integrations](https://github.com/appwrite/helm-chart/blob/main/docs/integrations.md) | SMTP, GitHub App, console sign-in, SMS, Sentry |
+| [Functions and Sites](https://github.com/appwrite/helm-chart/blob/main/docs/executor.md) | Builds as Jobs and the executor on Docker-in-Docker |
+| [Optional components](https://github.com/appwrite/helm-chart/blob/main/docs/optional-components.md) | Browser, assistant, autogravity, embedding, MQTT |
+| [Security](https://github.com/appwrite/helm-chart/blob/main/docs/security.md) | Pod security, credentials, NetworkPolicies, signatures |
+| [Upgrading](https://github.com/appwrite/helm-chart/blob/main/docs/upgrading.md) | Versions, migrations, rollbacks |
+| [Backup and restore](https://github.com/appwrite/helm-chart/blob/main/docs/backup-restore.md) | What to back up and how |
+| [Migrating from Docker](https://github.com/appwrite/helm-chart/blob/main/docs/migrating-from-docker.md) | Moving an existing install |
+| [GitOps](https://github.com/appwrite/helm-chart/blob/main/docs/gitops.md) | Argo CD and Flux |
+| [Troubleshooting](https://github.com/appwrite/helm-chart/blob/main/docs/troubleshooting.md) | Common problems |
+
+## Uninstalling
+
+```console
+helm uninstall appwrite --namespace appwrite
+```
+
+The chart's Secret (encryption key and passwords) and the PersistentVolumeClaims
+of `/storage` and the datastores are kept, so installing again with the same
+release name finds the data. To remove everything, delete them together:
+
+```console
+kubectl -n appwrite delete secret appwrite
+kubectl -n appwrite delete pvc -l app.kubernetes.io/instance=appwrite
+```
+
+{{ template "chart.maintainersSection" . }}
+
+{{ template "chart.sourcesSection" . }}
+
+## Values
+
+Every value, grouped by area. `helm show values oci://ghcr.io/appwrite/charts/appwrite`
+prints them with their comments.
+
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Appwrite" "description" "Settings every Appwrite pod shares: domains, console access, core secrets, extra configuration." "prefixes" (list "appwrite")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Routing" "description" "Ingress and Gateway API routes." "prefixes" (list "ingress" "httpRoute")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Database" "description" "The main database, built-in PostgreSQL or your own, and the optional DocumentsDB and VectorsDB servers." "prefixes" (list "database" "documentsDb" "vectorsDb")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Redis" "description" "Built-in or your own." "prefixes" (list "redis")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "ClickHouse" "description" "Built-in or your own." "prefixes" (list "clickhouse")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Storage" "description" "Where files go (the volume or S3), and the `/storage` volume." "prefixes" (list "storage")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Email" "description" "The SMTP server Appwrite sends mail through." "prefixes" (list "smtp")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "API, console, realtime and geo" "description" "" "prefixes" (list "api" "console" "realtime" "geo")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Workers and tasks" "description" "" "prefixes" (list "workers" "tasks")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Functions and Sites" "description" "The build orchestrator and the executor." "prefixes" (list "compute")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Optional components" "description" "" "prefixes" (list "browser" "assistant" "autogravity" "embedding" "mqtt")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Monitoring" "description" "Prometheus Operator objects for the datastores' metrics." "prefixes" (list "metrics")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Network policies" "description" "" "prefixes" (list "networkPolicy")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Migrations and tests" "description" "" "prefixes" (list "migrations" "tests")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Global settings and defaults" "description" "Image, security contexts, scheduling defaults, names, labels and extra objects." "prefixes" (list "global" "image" "defaults" "podSecurityContext" "containerSecurityContext" "serviceAccount" "nameOverride" "fullnameOverride" "commonLabels" "commonAnnotations" "extraObjects")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Other values" "description" "" "prefixes" (list "appwrite" "ingress" "httpRoute" "redis" "clickhouse" "database" "documentsDb" "vectorsDb" "storage" "smtp" "api" "console" "realtime" "geo" "workers" "tasks" "compute" "browser" "assistant" "autogravity" "embedding" "mqtt" "metrics" "networkPolicy" "migrations" "tests" "global" "image" "defaults" "podSecurityContext" "containerSecurityContext" "serviceAccount" "nameOverride" "fullnameOverride" "commonLabels" "commonAnnotations" "extraObjects") "exclude" true) }}
+
+## License
+
+BSD 3-Clause. See [LICENSE](https://github.com/appwrite/helm-chart/blob/main/LICENSE).
+
+{{- define "appwrite.valuesTable" -}}
+{{- $rows := list }}
+{{- range .rows }}
+{{- $key := .Key }}
+{{- $match := false }}
+{{- range $.prefixes }}
+{{- if or (eq $key .) (hasPrefix (printf "%s." .) $key) }}{{ $match = true }}{{ end }}
+{{- end }}
+{{- if ne $match (default false $.exclude) }}{{ $rows = append $rows . }}{{ end }}
+{{- end }}
+{{- if $rows }}
+### {{ .title }}
+{{ with .description }}
+{{ . }}
+{{ end }}
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+{{- range $rows }}
+| {{ .Key }} | {{ .Type }} | {{ if .Default }}{{ .Default }}{{ else }}{{ .AutoDefault }}{{ end }} | {{ if .Description }}{{ .Description }}{{ else }}{{ .AutoDescription }}{{ end }} |
+{{- end }}
+{{ end }}
+{{- end }}

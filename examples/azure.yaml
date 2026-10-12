@@ -1,0 +1,102 @@
+# Appwrite on AKS with Azure services: Azure Database for PostgreSQL,
+# Azure Cache for Redis, Azure Files for /storage, ClickHouse Cloud on Azure,
+# and an SMTP provider for email. Layer it over minimal.yaml, or over
+# production.yaml to replace that file's datastores and S3:
+#
+#   helm install appwrite oci://ghcr.io/appwrite/charts/appwrite \
+#     --namespace appwrite \
+#     -f minimal.yaml -f azure.yaml --wait --timeout 15m
+#
+# Files are stored on the Azure Files volume, not in object storage: Azure
+# Blob Storage has no S3 API, and Appwrite only speaks S3. Functions and
+# Sites need S3, so for them set storage.device: s3 with another
+# S3-compatible store (docs/storage.md#s3), then add
+# functions-existing-secrets.yaml. A translating proxy such as S3Proxy can put
+# an S3 API in front of Blob Storage; it isn't tested with Appwrite. MinIO's
+# gateway mode, which did the same, was removed in 2022. Decide before going
+# live: switching the device later doesn't move stored files.
+#
+# Before installing:
+#
+# - Azure Database for PostgreSQL flexible server, reachable from the
+#   cluster's VNet. Set the server parameter azure.extensions to
+#   POSTGIS,VECTOR,PG_TRGM, create the appwrite user and database
+#   (docs/external-databases.md#requirements), then connect as the admin user
+#   once and run, in the appwrite database,
+#     CREATE EXTENSION postgis; CREATE EXTENSION vector; CREATE EXTENSION pg_trgm;
+#   require_secure_transport can stay on: Appwrite connects with TLS when
+#   offered.
+# - Azure Cache for Redis, Standard tier or higher for a replica, with the
+#   non-TLS port (6379) turned on: it's off by default, and Appwrite 2.3.0 has
+#   no Redis TLS. An access key is the password. Keep it on a private
+#   endpoint. Azure Cache for Redis retires on 30 September 2028; for Azure
+#   Managed Redis, choose the Non-clustered policy, turn on Non-TLS access and
+#   access keys authentication, and set redis.external.port to 10000.
+# - An SMTP provider and a domain verified with it. Here SendGrid; others are
+#   in docs/integrations.md#email-smtp. Azure Communication Services Email
+#   (smtp.azurecomm.net) works over SMTP too, but Microsoft announced its
+#   retirement for 30 September 2028 and advises against new workloads on it.
+# - A ClickHouse Cloud service on Azure whose IP access list includes the
+#   cluster's outbound addresses (its load balancer or NAT gateway), with a
+#   URL-safe password.
+# - The azurefile-csi StorageClass, which AKS creates.
+#
+# Then create the namespace and the Secret. The key names are the chart's
+# defaults:
+#
+#   kubectl create namespace appwrite
+#   kubectl -n appwrite create secret generic appwrite-external \
+#     --from-literal=db-password='...' \
+#     --from-literal=redis-password='...' \
+#     --from-literal=clickhouse-password='...' \
+#     --from-literal=smtp-password='SG....'
+#
+# Provider notes: docs/external-databases.md, docs/storage.md,
+# docs/integrations.md#email-smtp
+
+database:
+  mode: external
+  name: appwrite
+  username: appwrite
+  connectionsMax: 400                 # see docs/external-databases.md#connections to size max_connections
+  password:
+    secretName: appwrite-external
+    secretKey: db-password            # explicit: production.yaml uses another key
+  external:
+    host: appwrite-db.postgres.database.azure.com
+
+redis:
+  mode: external
+  password:
+    secretName: appwrite-external     # a primary or secondary access key
+  external:
+    host: appwrite.redis.cache.windows.net
+    port: 6379                        # the non-TLS port
+
+clickhouse:
+  mode: external
+  database: appwrite
+  username: appwrite
+  password:
+    secretName: appwrite-external
+  external:
+    url: https://abc123.germanywestcentral.azure.clickhouse.cloud:8443
+
+storage:
+  device: local                       # Azure Files below; S3 for Functions and Sites
+  volume:
+    size: 100Gi                       # every uploaded file lives here
+    accessModes: [ReadWriteMany]      # Azure Files lets the API and workers spread across nodes
+    storageClass: azurefile-csi
+
+smtp:
+  host: smtp.sendgrid.net
+  port: 587
+  secure: tls
+  username: apikey                    # literally "apikey"; the password is the API key
+  password:
+    secretName: appwrite-external
+
+appwrite:
+  system:
+    emailAddress: noreply@example.com # on a domain verified with the provider

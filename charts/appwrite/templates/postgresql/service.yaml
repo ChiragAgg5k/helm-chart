@@ -1,0 +1,7 @@
+{{- if (eq .Values.database.mode "builtin") }}
+{{- $ports := list (dict "name" "postgresql" "port" 5432 "targetPort" "postgresql" "appProtocol" "postgresql") }}
+{{- if .Values.database.builtin.metrics.enabled }}
+{{- $ports = append $ports (dict "name" "metrics" "port" 9187 "targetPort" "metrics" "appProtocol" "http") }}
+{{- end }}
+{{- include "appwrite.service" (dict "root" . "component" "postgresql" "service" (dict) "ports" $ports) }}
+{{- end }}

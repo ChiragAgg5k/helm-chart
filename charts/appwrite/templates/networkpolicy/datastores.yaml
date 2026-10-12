@@ -1,0 +1,32 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- /* Datastores: only Appwrite pods of this release may connect. */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+{{ include "appwrite.networkPolicy.metadata" (dict "root" . "name" "datastores") }}
+spec:
+  podSelector:
+    {{- include "appwrite.networkPolicy.selector" (dict "root" . "components" (list "postgresql" "redis" "clickhouse")) | nindent 4 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "appwrite.selectorLabels" . | nindent 14 }}
+              appwrite/datastore-client: "true"
+    {{- $ports := list }}
+    {{- range $service, $port := dict "database" 9187 "redis" 9121 "clickhouse" 9363 }}
+    {{- $s := index $.Values $service }}
+    {{- if and (eq $s.mode "builtin") $s.builtin.metrics.enabled }}
+    {{- $ports = append $ports $port }}
+    {{- end }}
+    {{- end }}
+    {{- if and $ports .Values.networkPolicy.metrics.from }}
+    - from:
+        {{- toYaml .Values.networkPolicy.metrics.from | nindent 8 }}
+      ports:
+        {{- range $ports }}
+        - port: {{ . }}
+          protocol: TCP
+        {{- end }}
+    {{- end }}
+{{- end }}

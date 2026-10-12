@@ -1,0 +1,119 @@
+name: Renovate generate
+
+# Renovate bumps image tags in values.yaml and Chart.yaml but can't run
+# `make generate`, so its pull requests would fail the "Generated files are
+# up to date" check. This regenerates values.schema.json, the chart README
+# and the artifacthub.io/images annotation and commits them to the pull
+# request branch.
+#
+# The commit is made with a GitHub App token (secrets RENOVATE_HOOK_APP_ID and
+# RENOVATE_HOOK_PRIVATE_KEY, see CONTRIBUTING.md) through the API, so it's
+# signed and, unlike a GITHUB_TOKEN push, triggers the checks again. Without
+# the secrets the job only reports what is stale.
+on:
+  pull_request:
+    paths:
+      - charts/appwrite/values.yaml
+      - charts/appwrite/Chart.yaml
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HELM_SCHEMA_VERSION: v2.6.0
+  HELM_DOCS_VERSION: 1.14.2
+
+jobs:
+  generate:
+    name: Regenerate files on Renovate pull requests
+    # The pull request's author, which a later pusher can't change. Forks
+    # never get here: Renovate pushes branches to this repository.
+    if: github.event.pull_request.user.login == 'renovate[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The branch head, not the merge commit: the result is committed on top of it.
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.0
+      - name: Install helm-docs and helm-values-schema-json
+        run: |
+          curl -fsSL "https://github.com/norwoodj/helm-docs/releases/download/v${HELM_DOCS_VERSION}/helm-docs_${HELM_DOCS_VERSION}_Linux_x86_64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin helm-docs
+          helm plugin install https://github.com/losisin/helm-values-schema-json --version "${HELM_SCHEMA_VERSION}" --verify=false
+      - name: make generate
+        id: generate
+        run: |
+          make generate
+          changed=$(git diff --name-only -- charts/appwrite)
+          if [[ -z "$changed" ]]; then
+            echo "Generated files are up to date."
+          else
+            echo "Regenerated:"
+            echo "$changed"
+            git diff --stat
+          fi
+          {
+            echo "files<<EOF"
+            echo "$changed"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Check for the GitHub App
+        id: app
+        if: steps.generate.outputs.files != ''
+        env:
+          APP_ID: ${{ secrets.RENOVATE_HOOK_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.RENOVATE_HOOK_PRIVATE_KEY }}
+        run: |
+          if [[ -n "$APP_ID" && -n "$PRIVATE_KEY" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::RENOVATE_HOOK_APP_ID and RENOVATE_HOOK_PRIVATE_KEY aren't set: run 'make generate' on this branch and push the result by hand (see CONTRIBUTING.md)."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: token
+        if: steps.app.outputs.configured == 'true'
+        with:
+          # The App's client ID; its numeric app ID works too.
+          client-id: ${{ secrets.RENOVATE_HOOK_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_HOOK_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Commit the regenerated files to the pull request
+        if: steps.app.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          FILES: ${{ steps.generate.outputs.files }}
+        run: |
+          # createCommitOnBranch makes a signed commit, and fails if the
+          # branch moved since this run checked it out.
+          changes='[]'
+          while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            changes=$(jq --arg path "$file" --arg contents "$(base64 -w0 < "$file")" \
+              '. + [{path: $path, contents: $contents}]' <<<"$changes")
+          done <<<"$FILES"
+          jq -n --arg repo "$GITHUB_REPOSITORY" --arg branch "$BRANCH" --arg head "$HEAD_SHA" \
+            --argjson additions "$changes" '{
+              query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { url } } }",
+              variables: {input: {
+                branch: {repositoryNameWithOwner: $repo, branchName: $branch},
+                expectedHeadOid: $head,
+                message: {headline: "chore: make generate"},
+                fileChanges: {additions: $additions}
+              }}
+            }' > "${RUNNER_TEMP}/commit.json"
+          gh api graphql --input "${RUNNER_TEMP}/commit.json" --jq '.data.createCommitOnBranch.commit.url'

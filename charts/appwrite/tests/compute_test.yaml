@@ -1,0 +1,112 @@
+suite: storage and compute
+templates:
+  - templates/configmap-env.yaml
+  - templates/api/deployment.yaml
+  - templates/secret.yaml
+release:
+  name: aw
+values:
+  - values/required.yaml
+set:
+  storage.device: s3
+  storage.s3.endpoint: https://s3.example.com
+  storage.s3.bucket: files
+  storage.s3.accessKeyId.secretName: s3
+  storage.s3.secretAccessKey.secretName: s3
+tests:
+  - it: configures S3 storage
+    template: templates/configmap-env.yaml
+    asserts:
+      - isSubset:
+          path: data
+          content:
+            _APP_STORAGE_DEVICE: s3
+            _APP_STORAGE_S3_ENDPOINT: https://s3.example.com
+            _APP_STORAGE_S3_BUCKET: files
+            _APP_STORAGE_LIMIT: "30000000"
+
+  - it: reads S3 credentials from the existing Secret
+    template: templates/api/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: _APP_STORAGE_S3_SECRET
+            valueFrom:
+              secretKeyRef: {name: s3, key: s3-secret-key}
+
+  - it: stores inline S3 credentials in the chart Secret
+    template: templates/secret.yaml
+    set:
+      storage.s3.accessKeyId.secretName: ""
+      storage.s3.secretAccessKey.secretName: ""
+      storage.s3.accessKeyId.value: key
+      storage.s3.secretAccessKey.value: secret
+    asserts:
+      - equal:
+          path: data.s3-access-key
+          value: a2V5
+
+  - it: points Appwrite at the executor and enables runtimes
+    template: templates/configmap-env.yaml
+    release:
+      namespace: apps
+    set:
+      compute.enabled: true
+      compute.executor.privileged: true
+      compute.executor.existingSecret: executor-credentials
+      compute.functionsRuntimes: [node-22, python-3.12]
+    asserts:
+      - isSubset:
+          path: data
+          content:
+            _APP_EXECUTOR_HOST: http://aw-appwrite-executor.apps-executor.svc:9900/v1
+            _APP_FUNCTIONS_RUNTIMES: node-22,python-3.12
+
+  - it: generates executor and orchestrator secrets
+    template: templates/secret.yaml
+    set:
+      compute.enabled: true
+      compute.executor.privileged: true
+      compute.executor.existingSecret: executor-credentials
+    asserts:
+      - exists:
+          path: data.executor-secret
+      - exists:
+          path: data.orchestrator-secret
+
+  - it: passes the compute secrets to Appwrite
+    template: templates/api/deployment.yaml
+    set:
+      compute.enabled: true
+      compute.executor.privileged: true
+      compute.executor.existingSecret: executor-credentials
+      compute.secrets.existingSecret: compute
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: _APP_JOBS_SECRET
+            valueFrom:
+              secretKeyRef: {name: compute, key: orchestrator-secret}
+
+  - it: requires S3 for Functions and Sites
+    template: templates/configmap-env.yaml
+    set:
+      storage.device: local
+      compute.enabled: true
+      compute.executor.privileged: true
+      compute.executor.existingSecret: executor-credentials
+    asserts:
+      - failedTemplate:
+          errorPattern: compute.enabled needs storage.device=s3
+
+  - it: requires a bucket and credentials
+    template: templates/configmap-env.yaml
+    set:
+      storage.s3.bucket: ""
+      storage.s3.accessKeyId.secretName: ""
+      storage.s3.secretAccessKey.secretName: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: storage.s3.bucket is required

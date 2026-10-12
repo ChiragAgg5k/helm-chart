@@ -1,0 +1,343 @@
+suite: extension points
+templates:
+  - templates/extra-objects.yaml
+  - templates/metrics/servicemonitor.yaml
+  - templates/metrics/prometheusrule.yaml
+  - templates/postgresql/statefulset.yaml
+  - templates/postgresql/service.yaml
+  - templates/redis/statefulset.yaml
+  - templates/clickhouse/statefulset.yaml
+  - templates/clickhouse/configmap.yaml
+  - templates/geo/deployment.yaml
+  - templates/api/deployment.yaml
+  - templates/api/hpa.yaml
+  - templates/ingress/main.yaml
+  - templates/httproute/main.yaml
+  - templates/networkpolicy/datastores.yaml
+  - templates/configmap-env.yaml
+release:
+  name: aw
+  namespace: appwrite
+values:
+  - values/required.yaml
+tests:
+  - it: renders extraObjects from a list, with tpl
+    template: templates/extra-objects.yaml
+    set:
+      extraObjects:
+        - apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: "{{ .Release.Name }}-extra"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: aw-extra
+
+  - it: renders extraObjects from a map and from YAML strings
+    template: templates/extra-objects.yaml
+    set:
+      extraObjects:
+        b: |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: {{ include "appwrite.fullname" . }}-b
+        a:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: a
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: a
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: aw-appwrite-b
+        documentIndex: 1
+
+  - it: renders nothing without extraObjects
+    template: templates/extra-objects.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: creates a ServiceMonitor for each datastore with metrics
+    template: templates/metrics/servicemonitor.yaml
+    set:
+      database.builtin.metrics.enabled: true
+      clickhouse.builtin.metrics.enabled: true
+      metrics.serviceMonitor.enabled: true
+      metrics.serviceMonitor.labels: {release: prometheus}
+      metrics.serviceMonitor.interval: 30s
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: ServiceMonitor
+      - equal:
+          path: metadata.name
+          value: aw-appwrite-postgresql
+        documentIndex: 0
+      - equal:
+          path: metadata.labels.release
+          value: prometheus
+        documentIndex: 0
+      - equal:
+          path: spec.endpoints[0]
+          value: {port: metrics, path: /metrics, interval: 30s}
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: aw-appwrite-clickhouse
+        documentIndex: 1
+
+  - it: creates no ServiceMonitor unless enabled
+    template: templates/metrics/servicemonitor.yaml
+    set:
+      redis.builtin.metrics.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: creates a PrometheusRule from the given groups
+    template: templates/metrics/prometheusrule.yaml
+    set:
+      metrics.prometheusRule.enabled: true
+      metrics.prometheusRule.groups:
+        - name: datastores
+          rules:
+            - alert: RedisDown
+              expr: redis_up == 0
+    asserts:
+      - isKind:
+          of: PrometheusRule
+      - equal:
+          path: spec.groups[0].rules[0].alert
+          value: RedisDown
+
+  - it: runs the postgres exporter with the database password
+    template: templates/postgresql/statefulset.yaml
+    set:
+      database.builtin.metrics.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: metrics
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: DATA_SOURCE_PASS
+            valueFrom:
+              secretKeyRef:
+                name: aw-appwrite
+                key: db-password
+      - equal:
+          path: spec.template.spec.containers[1].securityContext.readOnlyRootFilesystem
+          value: true
+
+  - it: exposes the exporter port on the Service
+    template: templates/postgresql/service.yaml
+    set:
+      database.builtin.metrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.ports
+          content: {name: metrics, port: 9187, targetPort: metrics, protocol: TCP, appProtocol: http}
+
+  - it: gives PostgreSQL a memory-backed /dev/shm
+    template: templates/postgresql/statefulset.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content: {name: dshm, emptyDir: {medium: Memory, sizeLimit: 256Mi}}
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content: {name: dshm, mountPath: /dev/shm}
+
+  - it: leaves /dev/shm alone when disabled
+    template: templates/postgresql/statefulset.yaml
+    set:
+      database.builtin.shm.enabled: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.volumes
+          content: {name: dshm, emptyDir: {medium: Memory, sizeLimit: 256Mi}}
+
+  - it: rolls Redis when its password changes
+    template: templates/redis/statefulset.yaml
+    set:
+      redis.password.value: one
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations["checksum/secret"]
+
+  - it: rolls ClickHouse and geo when their secrets change
+    templates:
+      - templates/clickhouse/statefulset.yaml
+      - templates/geo/deployment.yaml
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations["checksum/secret"]
+
+  - it: serves ClickHouse metrics from its own endpoint
+    template: templates/clickhouse/statefulset.yaml
+    set:
+      clickhouse.builtin.metrics.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content: {name: metrics, containerPort: 9363, protocol: TCP}
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: config
+            mountPath: /etc/clickhouse-server/config.d/appwrite-prometheus.xml
+            subPath: prometheus.xml
+
+  - it: adds extension keys to datastores
+    template: templates/redis/statefulset.yaml
+    set:
+      redis.builtin.extraEnv: [{name: FOO, value: bar}]
+      redis.builtin.extraContainers: [{name: backup, image: example/backup:1}]
+      redis.builtin.extraInitContainers: [{name: init, image: example/init:1}]
+      redis.builtin.extraVolumes: [{name: extra, emptyDir: {}}]
+      redis.builtin.extraVolumeMounts: [{name: extra, mountPath: /extra}]
+      redis.builtin.terminationGracePeriodSeconds: 120
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: FOO, value: bar}
+      - contains:
+          path: spec.template.spec.containers
+          content: {name: backup, image: example/backup:1}
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: init
+      - contains:
+          path: spec.template.spec.volumes
+          content: {name: extra, emptyDir: {}}
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content: {name: extra, mountPath: /extra}
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 120
+
+  - it: applies revisionHistoryLimit, hostAliases and dnsConfig from defaults
+    templates:
+      - templates/api/deployment.yaml
+      - templates/redis/statefulset.yaml
+    set:
+      defaults.revisionHistoryLimit: 3
+      defaults.hostAliases: [{ip: 10.0.0.1, hostnames: [db.internal]}]
+      defaults.dnsConfig: {options: [{name: ndots, value: "2"}]}
+    asserts:
+      - equal:
+          path: spec.revisionHistoryLimit
+          value: 3
+      - equal:
+          path: spec.template.spec.hostAliases[0].ip
+          value: 10.0.0.1
+      - equal:
+          path: spec.template.spec.dnsConfig.options[0].value
+          value: "2"
+
+  - it: keeps ten revisions by default
+    template: templates/api/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.revisionHistoryLimit
+          value: 10
+      - notExists:
+          path: spec.template.spec.dnsConfig
+
+  - it: lets autoscaling.metrics replace the CPU target
+    template: templates/api/hpa.yaml
+    set:
+      api.autoscaling.enabled: true
+      api.autoscaling.metrics:
+        - type: Pods
+          pods:
+            metric: {name: requests_per_second}
+            target: {type: AverageValue, averageValue: "100"}
+    asserts:
+      - lengthEqual:
+          path: spec.metrics
+          count: 1
+      - equal:
+          path: spec.metrics[0].type
+          value: Pods
+
+  - it: sets the Ingress pathType and extra TLS entries
+    template: templates/ingress/main.yaml
+    set:
+      ingress.enabled: true
+      ingress.pathType: ImplementationSpecific
+      ingress.tls.enabled: true
+      ingress.extraTls: [{hosts: [other.example.com], secretName: other-tls}]
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].pathType
+          value: ImplementationSpecific
+      - lengthEqual:
+          path: spec.tls
+          count: 2
+      - equal:
+          path: spec.tls[1].secretName
+          value: other-tls
+
+  - it: puts httpRoute.timeouts on every rule but realtime
+    template: templates/httproute/main.yaml
+    set:
+      httpRoute.enabled: true
+      httpRoute.parentRefs: [{name: gateway}]
+      httpRoute.timeouts: {request: 90s}
+    asserts:
+      - notExists:
+          path: spec.rules[0].timeouts
+      - equal:
+          path: spec.rules[1].timeouts.request
+          value: 90s
+      - equal:
+          path: spec.rules[2].timeouts.request
+          value: 90s
+
+  - it: lets Prometheus scrape the datastores' metrics ports
+    template: templates/networkpolicy/datastores.yaml
+    set:
+      networkPolicy.enabled: true
+      redis.builtin.metrics.enabled: true
+      networkPolicy.metrics.from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+    asserts:
+      - equal:
+          path: spec.ingress[1].ports
+          value: [{port: 9121, protocol: TCP}]
+
+  - it: rejects another Appwrite major version
+    template: templates/configmap-env.yaml
+    set:
+      image.tag: 3.0.0
+    asserts:
+      - failedTemplate:
+          errorPattern: "image.tag 3.0.0 is Appwrite 3.x"
+
+  - it: accepts another major version when asked to
+    template: templates/configmap-env.yaml
+    set:
+      image.tag: 3.0.0
+      image.allowUnsupportedVersion: true
+    asserts:
+      - notFailedTemplate: {}

@@ -1,0 +1,27 @@
+{{- if and .Values.networkPolicy.enabled .Values.browser.enabled }}
+{{- /*
+The browser loads URLs users ask for (avatars screenshots). Keep it away from
+cluster and private addresses, except the Appwrite API it screenshots sites through.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+{{ include "appwrite.networkPolicy.metadata" (dict "root" . "name" "browser-egress") }}
+spec:
+  podSelector:
+    {{- include "appwrite.networkPolicy.selector" (dict "root" . "components" (list "browser")) | nindent 4 }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- toYaml .Values.networkPolicy.egress.dns | nindent 8 }}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "appwrite.componentSelectorLabels" (dict "root" . "component" "api") | nindent 14 }}
+    - to:
+        {{- include "appwrite.networkPolicy.publicPeers" dict | nindent 8 }}
+{{- end }}

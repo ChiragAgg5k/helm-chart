@@ -1,0 +1,26 @@
+# S3 storage with Functions and Sites, credentials from existing Secrets,
+# rendered and linted only: the nightly workflow installs Functions and Sites
+# with an S3 server next to the cluster. The executor can't read Secrets in
+# the release namespace, so it gets one of its own.
+appwrite:
+  domain: appwrite.ci.local
+  certificatesEmail: ci@example.com
+storage:
+  device: s3
+  s3:
+    endpoint: https://s3.example.com
+    region: eu-central
+    bucket: appwrite
+    accessKeyId:
+      secretName: appwrite-s3
+    secretAccessKey:
+      secretName: appwrite-s3
+compute:
+  enabled: true
+  secrets:
+    existingSecret: appwrite-compute
+  executor:
+    privileged: true
+    existingSecret: appwrite-executor-credentials
+  functionsRuntimes: [node-22]
+  sitesRuntimes: [static-1, node-22]

@@ -1,0 +1,78 @@
+name: Workflow lint
+
+# Lints the workflows and the scripts they run: actionlint (which also runs
+# shellcheck on every run: block), shellcheck on hack/, and zizmor's security
+# audit (accepted findings, each with a reason, are in .github/zizmor.yml).
+on:
+  pull_request:
+    paths:
+      - .github/workflows/**
+      - .github/zizmor.yml
+      - hack/**.sh
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/**
+      - .github/zizmor.yml
+      - hack/**.sh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  ACTIONLINT_VERSION: 1.7.12
+  SHELLCHECK_VERSION: v0.11.0
+  ZIZMOR_VERSION: 1.30.1
+
+jobs:
+  actionlint:
+    name: actionlint and shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install actionlint and shellcheck
+        run: |
+          mkdir -p "${RUNNER_TEMP}/bin"
+          cd "${RUNNER_TEMP}"
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          curl -fsSLO "${base}/${archive}"
+          curl -fsSL "${base}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" | grep " ${archive}\$" | sha256sum -c -
+          tar -xzf "${archive}" -C bin actionlint
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJ --strip-components=1 -C bin "shellcheck-${SHELLCHECK_VERSION}/shellcheck"
+          echo "${RUNNER_TEMP}/bin" >> "$GITHUB_PATH"
+      - name: actionlint
+        run: |
+          shellcheck --version
+          actionlint -color
+      - name: shellcheck hack/
+        run: git ls-files -z 'hack/*.sh' | xargs -0 shellcheck -S warning
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          inputs: .github/workflows/
+          config: .github/zizmor.yml
+          version: ${{ env.ZIZMOR_VERSION }}
+          # Findings fail the job instead of going to code scanning, which
+          # needs a public repository (or GitHub Advanced Security).
+          advanced-security: false

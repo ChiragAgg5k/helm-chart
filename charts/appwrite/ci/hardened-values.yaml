@@ -1,0 +1,33 @@
+# Locked-down install: NetworkPolicies on, egress restricted to DNS and the
+# release itself. The datastores' metrics exporters run too, behind the
+# datastores' NetworkPolicy.
+appwrite:
+  domain: appwrite.ci.local
+  certificatesEmail: ci@example.com
+  forceHttps: false
+api:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+database:
+  builtin:
+    metrics:
+      enabled: true
+redis:
+  builtin:
+    metrics:
+      enabled: true
+clickhouse:
+  builtin:
+    metrics:
+      enabled: true
+networkPolicy:
+  enabled: true
+  egress:
+    enabled: true
+  metrics:
+    from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: monitoring

@@ -1,0 +1,41 @@
+{{- $np := .Values.networkPolicy }}
+{{- if and $np.enabled $np.egress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+{{ include "appwrite.networkPolicy.metadata" (dict "root" . "name" "egress") }}
+spec:
+  {{- /* Not the browser: it loads user-supplied URLs, so browser-egress alone limits it to DNS, the API and public addresses. */}}
+  podSelector:
+    matchLabels:
+      {{- include "appwrite.selectorLabels" . | nindent 6 }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: NotIn
+        values: [browser]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- toYaml $np.egress.dns | nindent 8 }}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - {{- include "appwrite.networkPolicy.releasePeer" . | nindent 10 }}
+    {{- if .Values.compute.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ include "appwrite.executor.namespace" . }}
+          podSelector:
+            matchLabels:
+              {{- include "appwrite.componentSelectorLabels" (dict "root" . "component" "executor") | nindent 14 }}
+      ports:
+        - port: 9900
+          protocol: TCP
+    {{- end }}
+    {{- with $np.egress.extraRules }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

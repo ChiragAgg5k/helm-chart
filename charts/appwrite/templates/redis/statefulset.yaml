@@ -1,0 +1,34 @@
+{{- if (eq .Values.redis.mode "builtin") }}
+{{- $v := .Values.redis.builtin }}
+{{- $password := include "appwrite.credential.valueFrom" (dict "root" . "ref" .Values.redis.password "chartKey" "redis-password") | fromYaml }}
+{{- $args := list "--maxmemory" $v.maxmemory "--maxmemory-policy" $v.maxmemoryPolicy "--maxmemory-samples" "5" "--dir" "/data" }}
+{{- $env := list }}
+{{- if $password }}
+{{- $args = concat $args (list "--requirepass" "$(REDIS_PASSWORD)") }}
+{{- $ref := $password }}
+{{- /* REDISCLI_AUTH lets the probes authenticate without a password on the command line. */}}
+{{- $env = list (dict "name" "REDIS_PASSWORD" "valueFrom" $ref) (dict "name" "REDISCLI_AUTH" "valueFrom" $ref) }}
+{{- end }}
+{{- $handler := dict "exec" (dict "command" (list "redis-cli" "-h" "127.0.0.1" "ping")) }}
+{{- $sidecars := "" }}
+{{- if $v.metrics.enabled }}
+{{- $exporterEnv := list (dict "name" "REDIS_ADDR" "value" "redis://127.0.0.1:6379") }}
+{{- if $password }}
+{{- $exporterEnv = append $exporterEnv (dict "name" "REDIS_PASSWORD" "valueFrom" $password) }}
+{{- end }}
+{{- $sidecars = include "appwrite.datastore.exporter" (dict "root" . "values" $v "env" $exporterEnv "port" 9121) }}
+{{- end }}
+{{- include "appwrite.datastore" (dict
+  "root" .
+  "component" "redis"
+  "values" $v
+  "command" (list "redis-server")
+  "args" $args
+  "env" (ternary (toYaml $env) "" (gt (len $env) 0))
+  "ports" (list (dict "name" "redis" "containerPort" 6379 "protocol" "TCP"))
+  "probes" (include "appwrite.datastore.probes" (dict "handler" $handler))
+  "dataPath" "/data"
+  "secretKeys" (list "redis-password")
+  "sidecars" $sidecars
+) }}
+{{- end }}

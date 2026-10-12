@@ -1,0 +1,17 @@
+{{- $pr := .Values.metrics.prometheusRule }}
+{{- if and $pr.enabled $pr.groups }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "appwrite.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "appwrite.labels" . | nindent 4 }}
+    {{- with $pr.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with include "appwrite.annotations" (dict "root" .) | trim }}{{ . | nindent 2 }}{{ end }}
+spec:
+  groups:
+    {{- toYaml $pr.groups | nindent 4 }}
+{{- end }}

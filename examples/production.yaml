@@ -1,0 +1,149 @@
+# A production install: managed datastores, S3, Secrets you manage yourself,
+# several replicas, grouped workers and NetworkPolicies. Adjust the hosts,
+# sizes and Secret names; docs/production.md explains each choice.
+#
+# Before installing:
+#
+# - A CloudNativePG Cluster named appwrite-db in the namespace, with
+#   max_connections 500 (docs/external-databases.md#managed-postgresql). At
+#   peak this file can open about 400 connections; see
+#   docs/external-databases.md#connections for the arithmetic.
+# - Redis, ClickHouse and an S3 bucket at the addresses below, an SMTP
+#   server, and a ReadWriteMany StorageClass (here efs-sc).
+# - Traefik in the namespace traefik, and cert-manager with the ClusterIssuers
+#   letsencrypt (HTTP-01) and letsencrypt-dns01 (DNS-01, for the wildcard
+#   preview certificate).
+#
+# Secrets this file expects in the namespace (create them with kubectl or
+# External Secrets; see docs/security.md#bringing-your-own-secrets):
+#
+#   appwrite-core        _APP_OPENSSL_KEY_V1, _APP_NOTIFICATIONS_TRACKING_SECRET, _APP_GEO_SECRET
+#   appwrite-db-app      password             (created by CloudNativePG)
+#   appwrite-redis       redis-password
+#   appwrite-clickhouse  clickhouse-password
+#   appwrite-s3          s3-access-key, s3-secret-key
+#   appwrite-smtp        smtp-password
+#
+# For example, appwrite-core. Keep a copy of _APP_OPENSSL_KEY_V1 outside the
+# cluster: without it, a database backup can't be read.
+#
+#   kubectl create namespace appwrite
+#   kubectl -n appwrite create secret generic appwrite-core \
+#     --from-literal=_APP_OPENSSL_KEY_V1="$(openssl rand -hex 32)" \
+#     --from-literal=_APP_NOTIFICATIONS_TRACKING_SECRET="$(openssl rand -hex 32)" \
+#     --from-literal=_APP_GEO_SECRET="$(openssl rand -hex 32)"
+#
+# Then install:
+#
+#   helm install appwrite oci://ghcr.io/appwrite/charts/appwrite \
+#     --namespace appwrite -f production.yaml --wait --timeout 15m
+#
+# For Functions and Sites, add functions-existing-secrets.yaml. Layer
+# external-services.yaml, aws.yaml, gcp.yaml or azure.yaml on top to use other
+# datastores.
+
+appwrite:
+  domain: appwrite.example.com
+  certificatesEmail: ops@example.com
+  domainTargets:
+    cname: lb.example.com             # what custom domains CNAME to
+  secrets:
+    existingSecret: appwrite-core
+    generate: false                   # fail instead of generating anything
+  system:
+    emailAddress: noreply@example.com
+
+# CloudNativePG in the same namespace; docs/external-databases.md#managed-postgresql
+database:
+  mode: external
+  connectionsMax: 270                 # sizes the API's pools; workers size theirs from maxCoroutines
+  poolClients: 20                     # Appwrite pods at peak: 8 API, 2 realtime, 4 workers, 3 tasks, headroom
+  password:
+    secretName: appwrite-db-app
+    secretKey: password               # the key CloudNativePG writes
+  external:
+    host: appwrite-db-rw
+
+redis:
+  mode: external
+  password:
+    secretName: appwrite-redis
+  external:
+    host: appwrite-redis.example.internal
+
+clickhouse:
+  mode: external
+  password:
+    secretName: appwrite-clickhouse
+  external:
+    url: https://clickhouse.example.com:8443
+
+storage:
+  device: s3
+  s3:
+    endpoint: https://s3.example.com
+    region: us-east-1
+    bucket: appwrite
+    accessKeyId:
+      secretName: appwrite-s3
+    secretAccessKey:
+      secretName: appwrite-s3
+  volume:
+    size: 5Gi                         # certificates and scratch files, with S3
+    accessModes: [ReadWriteMany]      # lets the API and workers spread across nodes
+    storageClass: efs-sc              # any class that supports ReadWriteMany
+
+smtp:
+  host: email-smtp.eu-west-1.amazonaws.com
+  username: AKIAEXAMPLE
+  password:
+    secretName: appwrite-smtp
+
+api:
+  resources:
+    requests: {cpu: "1", memory: 1Gi}
+    limits: {memory: 2Gi}
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+console:
+  replicaCount: 2
+realtime:
+  replicaCount: 2
+
+# Separate Deployments so a burst of usage or build jobs doesn't hold up
+# emails and webhooks. docs/architecture.md#worker-topologies
+workers:
+  mode: grouped
+  groups:
+    core:
+      queues: [databases, deletes, mails, messaging, notifications, certificates, migrations, webhooks]
+      resources:
+        requests: {cpu: 500m, memory: 1Gi}
+    usage:
+      queues: [stats-usage, stats-resources]
+      replicaCount: 2
+    compute:
+      queues: [builds, jobs, functions, executions, screenshots]
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  tls:
+    enabled: true
+  wildcard:
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-dns01
+    tls:
+      enabled: true
+
+networkPolicy:
+  enabled: true
+  ingress:
+    from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: traefik

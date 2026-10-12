@@ -1,0 +1,92 @@
+# Appwrite with every datastore outside the release: your own PostgreSQL,
+# Redis, ClickHouse and S3, and an SMTP server. Each service is independent:
+# to keep a built-in one, delete its block below. Layer it over minimal.yaml,
+# or over production.yaml to replace that file's datastores:
+#
+#   helm install appwrite oci://ghcr.io/appwrite/charts/appwrite \
+#     --namespace appwrite \
+#     -f minimal.yaml -f external-services.yaml --wait --timeout 15m
+#
+# For Functions and Sites, add functions-existing-secrets.yaml.
+#
+# Create the namespace and the Secret first. The key names are the chart's
+# defaults:
+#
+#   kubectl create namespace appwrite
+#   kubectl -n appwrite create secret generic appwrite-external \
+#     --from-literal=db-password='...' \
+#     --from-literal=redis-password='...' \
+#     --from-literal=clickhouse-password='...' \
+#     --from-literal=s3-access-key='...' \
+#     --from-literal=s3-secret-key='...' \
+#     --from-literal=smtp-password='...'
+#
+# Requirements and provider notes: docs/external-databases.md,
+# docs/storage.md#s3, docs/integrations.md#email-smtp
+
+# PostgreSQL with the postgis, vector and pg_trgm extensions, connected to
+# directly (no transaction-mode pooler). TLS is used when the server offers it.
+database:
+  mode: external
+  adapter: postgresql
+  name: appwrite
+  username: appwrite
+  # Sizes the API's database pools. Workers size theirs from maxCoroutines,
+  # so the total can be higher: size max_connections for the worst case
+  # (docs/external-databases.md#connections).
+  connectionsMax: 151
+  password:
+    secretName: appwrite-external
+    secretKey: db-password            # explicit: production.yaml uses another key
+  external:
+    host: appwrite-db.example.internal
+    port: 5432
+
+# A single Redis or Valkey endpoint without TLS. Set secretName to "" for a
+# Redis without AUTH.
+redis:
+  mode: external
+  password:
+    secretName: appwrite-external
+  external:
+    host: appwrite-redis.example.internal
+    port: 6379
+
+# ClickHouse over HTTP(S). The password must be URL-safe (letters, digits,
+# - _ . ~), e.g. from `openssl rand -hex 32`.
+clickhouse:
+  mode: external
+  database: appwrite
+  username: appwrite
+  password:
+    secretName: appwrite-external
+  external:
+    url: https://clickhouse.example.com:8443
+
+# Any S3-compatible store. Leave endpoint empty for AWS S3. Create the bucket
+# first; Appwrite doesn't.
+storage:
+  device: s3
+  s3:
+    endpoint: https://s3.example.com
+    region: us-east-1
+    bucket: appwrite
+    accessKeyId:
+      secretName: appwrite-external
+    secretAccessKey:
+      secretName: appwrite-external
+  # With S3, /storage only holds certificates and scratch files.
+  volume:
+    size: 5Gi
+
+smtp:
+  host: smtp.example.com
+  port: 587
+  secure: tls
+  username: appwrite
+  password:
+    secretName: appwrite-external
+
+appwrite:
+  system:
+    emailAddress: noreply@example.com

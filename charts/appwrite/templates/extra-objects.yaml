@@ -1,0 +1,15 @@
+{{- /* extraObjects: a list, or a map whose values are rendered in key order. */}}
+{{- $objects := .Values.extraObjects }}
+{{- if kindIs "map" $objects }}
+{{- $list := list }}
+{{- range $key := keys $objects | sortAlpha }}
+{{- $list = append $list (get $objects $key) }}
+{{- end }}
+{{- $objects = $list }}
+{{- end }}
+{{- range $objects }}
+{{- if . }}
+---
+{{ tpl (ternary . (toYaml .) (kindIs "string" .)) $ }}
+{{- end }}
+{{- end }}

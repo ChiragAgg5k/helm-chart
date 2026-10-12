@@ -1,0 +1,7 @@
+{{- if (eq .Values.redis.mode "builtin") }}
+{{- $ports := list (dict "name" "redis" "port" 6379 "targetPort" "redis" "appProtocol" "redis") }}
+{{- if .Values.redis.builtin.metrics.enabled }}
+{{- $ports = append $ports (dict "name" "metrics" "port" 9121 "targetPort" "metrics" "appProtocol" "http") }}
+{{- end }}
+{{- include "appwrite.service" (dict "root" . "component" "redis" "service" (dict) "ports" $ports) }}
+{{- end }}

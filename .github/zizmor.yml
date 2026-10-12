@@ -1,0 +1,14 @@
+# zizmor (https://docs.zizmor.sh) configuration for the Workflow lint workflow
+# and `make lint-actions`. Findings not listed here fail CI.
+#
+# Accept a finding only with a reason next to it, scoped to the file (or
+# file:line) it applies to, for example:
+#
+#   rules:
+#     template-injection:
+#       ignore:
+#         # <why this expansion can't be attacker-controlled>
+#         - release.yaml:42
+#
+# Reference: https://docs.zizmor.sh/configuration/
+rules: {}

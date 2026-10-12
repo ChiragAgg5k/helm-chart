@@ -1,0 +1,33 @@
+name: Documentation
+description: A guide, example or value description that is wrong, unclear or missing.
+labels: [documentation]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page or file
+      description: A link to the guide, example or value (docs/, examples/, the chart README).
+      placeholder: https://github.com/appwrite/helm-chart/blob/main/docs/production.md
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What's wrong?
+      options:
+        - It's incorrect or out of date
+        - It's unclear
+        - Something is missing
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What it says, what you expected or what happened when you followed it, and what would have helped.
+    validations:
+      required: true
+  - type: input
+    id: chart-version
+    attributes:
+      label: Chart version

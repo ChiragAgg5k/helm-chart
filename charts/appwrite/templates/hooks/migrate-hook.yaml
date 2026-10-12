@@ -1,0 +1,3 @@
+{{- if and (eq .Values.migrations.mode "hook") .Release.IsUpgrade (or (include "appwrite.versionChanged" .) (include "appwrite.migrationFailed" .)) }}
+{{- include "appwrite.migrateJob" (dict "root" . "name" (include "appwrite.migrateHookName" .) "hook" true) }}
+{{- end }}

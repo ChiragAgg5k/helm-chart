@@ -1,0 +1,32 @@
+{{- $w := .Values.workers }}
+{{- range (include "appwrite.workers.deployments" . | fromYamlArray) }}
+{{- $v := .values }}
+{{- if or (gt (int ($v.replicaCount | default 0)) 0) (and $v.autoscaling $v.autoscaling.enabled) }}
+---
+{{- $extra := dict "_APP_WORKERS_NUM" ($v.processes | default 1) }}
+{{- with $v.maxCoroutines }}
+{{- $_ := set $extra "_APP_WORKER_MAX_COROUTINES" . }}
+{{- end }}
+{{- $env := include "appwrite.env" (dict "root" $ "cpuNum" (include "appwrite.cpuNum" $v) "extra" $extra) }}
+{{- $autoscaling := false }}
+{{- if and $v.autoscaling (not .singleton) }}
+{{- $autoscaling = $v.autoscaling.enabled | default false }}
+{{- end }}
+{{- include "appwrite.deployment" (dict
+  "root" $
+  "component" .component
+  "role" "worker"
+  "values" $v
+  "parent" $w
+  "appwrite" true
+  "command" (list "php" "app/worker.php" (join "," .queues))
+  "env" $env
+  "replicas" (ternary nil ($v.replicaCount | default 0) $autoscaling)
+  "singleton" .singleton
+  "spread" true
+  "storage" .storage
+  "certbot" .certbot
+  "initContainers" (include "appwrite.initContainer.waitForApi" $)
+) }}
+{{- end }}
+{{- end }}

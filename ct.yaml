@@ -1,0 +1,12 @@
+# chart-testing configuration: https://github.com/helm/chart-testing
+chart-dirs:
+  - charts
+target-branch: main
+remote: origin
+lint-conf: lintconf.yaml
+validate-maintainers: false
+# Off by design: pull requests add CHANGELOG.md entries under [Unreleased], and
+# the version is bumped only in the pull request that cuts a release
+# (RELEASING.md). The Changelog job in lint.yaml enforces the entries.
+check-version-increment: false
+helm-extra-args: --timeout 900s

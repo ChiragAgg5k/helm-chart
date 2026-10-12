@@ -1,0 +1,125 @@
+{{- $fullname := include "appwrite.fullname" . }}
+{{- $v := .Values.appwrite }}
+{{- $scheme := ternary "https" "http" $v.forceHttps }}
+{{- $consoleDomain := $v.consoleDomain | default $v.domain }}
+{{- $routed := or .Values.ingress.enabled .Values.httpRoute.enabled }}
+{{- $docs := printf "https://github.com/appwrite/helm-chart/blob/appwrite-%s/docs" .Chart.Version }}
+Appwrite {{ include "appwrite.version" . }} has been {{ if .Release.IsUpgrade }}upgraded{{ else }}installed{{ end }} as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+{{- if $routed }}
+
+  Console:  {{ $scheme }}://{{ $consoleDomain }}
+  API:      {{ $scheme }}://{{ $v.domain }}/v1
+{{- if .Values.realtime.enabled }}
+  Realtime: {{ ternary "wss" "ws" $v.forceHttps }}://{{ $v.domain }}/v1/realtime
+{{- end }}
+{{- if and $v.forceHttps .Values.ingress.enabled (not .Values.ingress.tls.enabled) }}
+
+NOTE: appwrite.forceHttps is on, so Appwrite redirects HTTP to HTTPS, but
+ingress.tls.enabled is off. HTTPS has to work at your ingress controller
+(for example with a default certificate), or set ingress.tls.enabled=true.
+{{- end }}
+{{- else }}
+
+No Ingress or HTTPRoute was created. Appwrite serves the console and the API
+on one hostname, {{ $v.domain }}, and needs these routes:
+
+  /v1/realtime  ->  service/{{ $fullname }}-realtime
+  /v1           ->  service/{{ $fullname }}-api
+  /             ->  service/{{ $fullname }}-{{ ternary "console" "api" .Values.console.enabled }}
+
+Set ingress.enabled=true or httpRoute.enabled=true, or route them yourself.
+A port-forward to the console alone won't work: the console sends its API
+calls to its own address. To check that the API is up:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ $fullname }}-api 8080:{{ .Values.api.service.port }}
+  curl -H "Host: {{ include "appwrite.api.internalHost" . }}" http://localhost:8080/v1/health/version
+{{- end }}
+{{- if not .Release.IsUpgrade }}
+
+First steps
+  1. Open the console and sign up.{{ if $v.console.whitelistRoot }} The first account becomes the
+     administrator; everyone else needs an invitation from it.{{ end }}
+{{- if not (or $v.secrets.existingSecret $v.secrets.opensslKey) }}
+  2. Back up the encryption key the chart generated. Without it, encrypted
+     data can't be read after a restore:
+
+     kubectl -n {{ .Release.Namespace }} get secret {{ include "appwrite.secretName" . }} \
+       -o jsonpath='{.data._APP_OPENSSL_KEY_V1}' | base64 -d
+{{- end }}
+{{- $builtin := list }}
+{{- if (eq .Values.database.mode "builtin") }}{{ $builtin = append $builtin "PostgreSQL" }}{{ end }}
+{{- if (eq .Values.redis.mode "builtin") }}{{ $builtin = append $builtin "Redis" }}{{ end }}
+{{- if (eq .Values.clickhouse.mode "builtin") }}{{ $builtin = append $builtin "ClickHouse" }}{{ end }}
+{{- with $builtin }}
+
+The built-in {{ if eq (len .) 1 }}{{ first . }} is a single replica{{ else }}{{ join ", " (initial .) }} and {{ last . }} are single replicas{{ end }}, fine for trying Appwrite.
+Before real users depend on this install, move to replicated services:
+{{ $docs }}/external-databases.md
+{{- end }}
+{{- end }}
+
+{{- if .Values.compute.enabled }}
+
+Functions and Sites build as Jobs in namespace "{{ include "appwrite.builds.namespace" . }}" and execute in
+namespace "{{ include "appwrite.executor.namespace" . }}", on Docker-in-Docker{{ if .Values.compute.executor.privileged }} in a privileged container:
+keep the executor on nodes of its own{{ end }}.
+{{- else }}
+
+Functions and Sites are off. To turn them on: {{ $docs }}/executor.md
+{{- end }}
+{{- if not .Values.smtp.host }}
+
+Email is off until smtp.host is set: {{ $docs }}/integrations.md
+{{- end }}
+
+{{- with include "appwrite.workers.unconsumed" . }}
+
+WARNING: no worker consumes these queues, so their jobs will pile up in Redis:
+  {{ . }}
+{{- end }}
+{{- $pods := include "appwrite.pods.max" . | int }}
+{{- if gt $pods (int .Values.database.poolClients) }}
+
+WARNING: up to {{ $pods }} Appwrite pods can run, but database.poolClients
+is {{ .Values.database.poolClients }}. Appwrite sizes each pod's database pools from
+connectionsMax / poolClients, so with fewer pool clients than pods the pools
+grow larger than intended. Set poolClients to at least {{ $pods }}, and size the
+database for the worst case: {{ $docs }}/architecture.md#database-connections
+{{- end }}
+{{- if and (not .Values.storage.volume.enabled) (or (gt $pods 1) (ne .Values.workers.mode "combined")) }}
+
+WARNING: storage.volume.enabled is false, so every pod that mounts /storage gets
+its own empty volume. Files written by one pod (uploads, builds,
+certificates) aren't visible to the others.
+{{- end }}
+{{- if and .Values.compute.enabled .Values.networkPolicy.enabled .Values.networkPolicy.egress.enabled (not .Values.networkPolicy.egress.extraRules) }}
+
+WARNING: networkPolicy.egress is restricted, but no extraRules are set.
+Appwrite can't reach S3, and
+the orchestrator can't reach the Kubernetes API. Allow them in
+networkPolicy.egress.extraRules: {{ $docs }}/executor.md
+{{- end }}
+{{- if and .Values.compute.enabled (not .Values.compute.builds.createNamespace) }}
+{{- $ns := lookup "v1" "Namespace" "" (include "appwrite.builds.namespace" .) }}
+{{- $enforce := dig "metadata" "labels" "pod-security.kubernetes.io/enforce" "" ($ns | default dict) }}
+{{- if and $ns (not (has $enforce (list "baseline" "restricted"))) }}
+
+WARNING: namespace "{{ include "appwrite.builds.namespace" . }}" doesn't enforce a Pod Security
+Standard. Build Jobs run there; label it so a leaked orchestrator key can't
+start privileged pods:
+
+  kubectl label namespace {{ include "appwrite.builds.namespace" . }} pod-security.kubernetes.io/enforce=baseline
+{{- end }}
+{{- end }}
+{{- if and .Release.IsUpgrade (eq .Values.migrations.mode "none") }}
+
+migrations.mode is none: after changing the Appwrite version, run the data
+migration yourself (kubectl exec into an API pod: php app/cli.php migrate).
+{{- end }}
+
+Check the installation:
+
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+Guides: {{ $docs }}/README.md

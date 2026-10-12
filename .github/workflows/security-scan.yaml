@@ -1,0 +1,132 @@
+name: Security scan
+
+# Nightly Trivy scans: every image the chart deploys (the artifacthub.io/images
+# annotation, which hack/chart-images.sh keeps equal to values.yaml) and the
+# manifests each ci/ scenario renders. Results go to code scanning once the
+# repository is public; until then they're in the job logs and summaries.
+on:
+  schedule:
+    - cron: "37 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Run from the image, pinned by digest, rather than an installer action.
+  TRIVY_IMAGE: docker.io/aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
+
+jobs:
+  prepare:
+    name: Images and visibility
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.images.outputs.images }}
+      public: ${{ steps.repo.outputs.public }}
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: List the chart's images
+        id: images
+        run: |
+          hack/chart-images.sh --check
+          images=$(yq -o json -I 0 '.annotations["artifacthub.io/images"] | from_yaml' charts/appwrite/Chart.yaml)
+          echo "$images" | jq .
+          echo "images=${images}" >> "$GITHUB_OUTPUT"
+      # Scheduled events carry no repository in their payload, so ask the API.
+      - name: Repository visibility
+        id: repo
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          visibility=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .visibility)
+          echo "public=$([[ "$visibility" == public ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  images:
+    name: Image ${{ matrix.image.name }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.prepare.outputs.images) }}
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: trivy image
+        env:
+          IMAGE: ${{ matrix.image.image }}
+        run: |
+          trivy() {
+            docker run --rm -v "${RUNNER_TEMP}:/out" -v trivy-cache:/root/.cache "$TRIVY_IMAGE" "$@"
+          }
+          trivy image --scanners vuln --format json --output /out/image.json "$IMAGE"
+          trivy convert --format sarif --output /out/image.sarif /out/image.json
+          {
+            echo "### ${IMAGE}"
+            echo '```'
+            trivy convert --format table --severity HIGH,CRITICAL /out/image.json
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload to code scanning
+        if: needs.prepare.outputs.public == 'true'
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: ${{ runner.temp }}/image.sarif
+          category: trivy-image-${{ matrix.image.name }}
+
+  config:
+    name: Rendered manifests
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.0
+      - name: Render every ci/ scenario
+        run: |
+          mkdir -p rendered
+          for f in charts/appwrite/ci/*-values.yaml; do
+            name=$(basename "$f" -values.yaml)
+            helm template appwrite charts/appwrite -n appwrite -f "$f" > "rendered/${name}.yaml"
+          done
+          ls -l rendered
+      - name: trivy config
+        run: |
+          trivy() {
+            docker run --rm -v "${GITHUB_WORKSPACE}:/work" -w /work -v trivy-cache:/root/.cache "$TRIVY_IMAGE" "$@"
+          }
+          # KSV-0125 (images from untrusted registries) flags every container:
+          # the chart pulls from docker.io, ghcr.io and quay.io by design.
+          printf '%s\n' KSV-0125 > trivy-ignore.txt
+          trivy config --ignorefile trivy-ignore.txt --format json --output trivy-config.json rendered
+          trivy convert --format sarif --output trivy-config.sarif trivy-config.json
+          {
+            echo '### Rendered manifests'
+            echo '```'
+            trivy convert --format table --severity MEDIUM,HIGH,CRITICAL trivy-config.json
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload to code scanning
+        if: needs.prepare.outputs.public == 'true'
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config

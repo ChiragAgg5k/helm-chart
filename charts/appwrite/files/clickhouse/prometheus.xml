@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!-- Prometheus endpoint, enabled with clickhouse.metrics.enabled. -->
+<clickhouse>
+    <prometheus>
+        <endpoint>/metrics</endpoint>
+        <port>9363</port>
+        <metrics>true</metrics>
+        <events>true</events>
+        <asynchronous_metrics>true</asynchronous_metrics>
+        <errors>true</errors>
+    </prometheus>
+</clickhouse>

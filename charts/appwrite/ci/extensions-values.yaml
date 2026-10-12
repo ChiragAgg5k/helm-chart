@@ -1,0 +1,75 @@
+# Extension points: Prometheus Operator objects, extraObjects, routing and pod
+# options. Linted and rendered only; kind has no Prometheus Operator CRDs.
+appwrite:
+  domain: appwrite.ci.local
+  certificatesEmail: ci@example.com
+defaults:
+  revisionHistoryLimit: 3
+  hostAliases:
+    - ip: 10.0.0.10
+      hostnames: [smtp.internal]
+  dnsConfig:
+    options:
+      - name: ndots
+        value: "2"
+database:
+  builtin:
+    metrics:
+      enabled: true
+    extraEnv:
+      - name: TZ
+        value: UTC
+redis:
+  builtin:
+    metrics:
+      enabled: true
+clickhouse:
+  builtin:
+    metrics:
+      enabled: true
+metrics:
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus
+    interval: 30s
+  prometheusRule:
+    enabled: true
+    groups:
+      - name: appwrite-datastores
+        rules:
+          - alert: AppwriteRedisDown
+            expr: redis_up == 0
+            for: 5m
+extraObjects:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: "{{ include \"appwrite.fullname\" . }}-extra"
+    data:
+      domain: "{{ .Values.appwrite.domain }}"
+api:
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          target:
+            type: Utilization
+            averageUtilization: 60
+ingress:
+  enabled: true
+  pathType: ImplementationSpecific
+  extraTls:
+    - hosts: [console.appwrite.ci.local]
+      secretName: console-tls
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: gateway
+      namespace: gateway
+  timeouts:
+    request: 90s

@@ -1,0 +1,45 @@
+{{- if (eq .Values.database.mode "builtin") }}
+{{- $v := .Values.database.builtin }}
+{{- $d := .Values.database }}
+{{- $password := include "appwrite.credential.valueFrom" (dict "root" . "ref" $d.password "chartKey" "db-password") | fromYaml }}
+{{- $settings := dict "max_connections" ($v.maxConnections | default (add $d.connectionsMax 20)) }}
+{{- range $k, $val := $v.extraConfig }}
+{{- $_ := set $settings $k $val }}
+{{- end }}
+{{- $args := list "postgres" }}
+{{- range $k, $val := $settings }}
+{{- $args = concat $args (list "-c" (printf "%s=%s" $k (include "appwrite.envValue" $val))) }}
+{{- end }}
+{{- $env := list
+  (dict "name" "POSTGRES_DB" "value" $d.name)
+  (dict "name" "POSTGRES_USER" "value" $d.username)
+  (dict "name" "POSTGRES_PASSWORD" "valueFrom" $password) }}
+{{- $handler := dict "exec" (dict "command" (list "pg_isready" "-h" "127.0.0.1" "-U" $d.username "-d" $d.name)) }}
+{{- $mounts := list (dict "name" "run" "mountPath" "/var/run/postgresql") }}
+{{- $volumes := list (dict "name" "run" "emptyDir" dict) }}
+{{- if $v.shm.enabled }}
+{{- $mounts = append $mounts (dict "name" "dshm" "mountPath" "/dev/shm") }}
+{{- $volumes = append $volumes (dict "name" "dshm" "emptyDir" (dict "medium" "Memory" "sizeLimit" $v.shm.sizeLimit)) }}
+{{- end }}
+{{- $sidecars := "" }}
+{{- if $v.metrics.enabled }}
+{{- $exporterEnv := list
+  (dict "name" "DATA_SOURCE_URI" "value" (printf "127.0.0.1:5432/%s?sslmode=disable" $d.name))
+  (dict "name" "DATA_SOURCE_USER" "value" $d.username)
+  (dict "name" "DATA_SOURCE_PASS" "valueFrom" $password) }}
+{{- $sidecars = include "appwrite.datastore.exporter" (dict "root" . "values" $v "env" $exporterEnv "port" 9187) }}
+{{- end }}
+{{- include "appwrite.datastore" (dict
+  "root" .
+  "component" "postgresql"
+  "values" $v
+  "args" $args
+  "env" (toYaml $env)
+  "ports" (list (dict "name" "postgresql" "containerPort" 5432 "protocol" "TCP"))
+  "probes" (include "appwrite.datastore.probes" (dict "handler" $handler))
+  "dataPath" "/var/lib/postgresql"
+  "volumeMounts" (toYaml $mounts)
+  "volumes" (toYaml $volumes)
+  "sidecars" $sidecars
+) }}
+{{- end }}

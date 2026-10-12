@@ -1,0 +1,34 @@
+name: Feature request
+description: Something the chart should deploy or let you configure.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The setup or use case, and what gets in the way with the chart today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like the chart to do?
+      description: For example the values you'd expect to set, or the resources it should render.
+      render: yaml
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workarounds
+      description: What you do now instead, if anything (a post-renderer, extra manifests, a fork).
+  - type: input
+    id: chart-version
+    attributes:
+      label: Chart version
+      description: The version you're using, if you run the chart already.
+  - type: checkboxes
+    id: upstream
+    attributes:
+      label: Scope
+      options:
+        - label: This is about the Helm chart, not a feature of Appwrite itself (those go to [appwrite/appwrite](https://github.com/appwrite/appwrite/issues)).
+          required: true

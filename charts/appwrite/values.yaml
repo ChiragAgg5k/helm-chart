@@ -1,0 +1,2294 @@
+# Default values for the Appwrite chart.
+#
+# Every key is documented with a `# --` comment so helm-docs can render the
+# README table. Schema annotations refine the generated values.schema.json
+# where the inferred type isn't enough.
+#
+# Per-component scheduling settings fall back to `defaults` key by key: a
+# component value that is empty ({}, [], "" or null) inherits the matching
+# `defaults` value, anything else replaces it entirely (objects aren't
+# deep-merged). Pod labels and annotations are the exception: they're merged.
+#
+# Guides are in docs/ and complete values files to start from in examples/,
+# both at https://github.com/appwrite/helm-chart.
+
+# @schema
+# additionalProperties: true
+# @schema
+global:
+  # -- Registry that replaces the registry of every image the chart renders,
+  # e.g. a pull-through cache. With `compute.enabled` it doesn't reach the
+  # runtime images (`openruntimes/*`) the executor and build Jobs pull from
+  # Docker Hub; see docs/executor.md#registries.
+  imageRegistry: ""
+  # -- Image pull secrets added to the pods the chart renders, as a list of
+  # Secret names (or `{name: ...}` objects). Each Secret must exist in the
+  # pod's namespace, which includes the executor's with `compute.enabled`.
+  # Build Jobs don't get them, and neither do images the executor's Docker
+  # daemon pulls.
+  imagePullSecrets: [] # @schema item: string
+  # -- Storage class for every PersistentVolumeClaim that doesn't set its own.
+  # Empty uses the cluster default; `-` requests no class.
+  storageClass: ""
+
+# -- Override the chart name used in resource names.
+nameOverride: ""
+# -- Override the fully qualified app name used in resource names.
+fullnameOverride: ""
+# -- Labels added to every resource rendered by the chart.
+commonLabels: {} # @schema additionalProperties: {type: string}
+# -- Annotations added to every resource rendered by the chart.
+commonAnnotations: {} # @schema additionalProperties: {type: string}
+# -- Extra Kubernetes objects to deploy with the release, as a list or a map
+# of manifests (objects or YAML strings). Each one is rendered with `tpl`, so
+# it may use `{{ .Release.Name }}` and other template values. A map lets
+# several values files add objects without replacing each other.
+extraObjects: [] # @schema type: [array, object]
+
+# Appwrite image, shared by the API, realtime, workers, tasks, hooks and tests.
+image:
+  # -- Image registry.
+  registry: docker.io
+  # -- Image repository.
+  repository: appwrite/appwrite
+  # -- Image tag. Defaults to the chart appVersion.
+  tag: ""
+  # -- Image digest (`sha256:...`). When set it pins the image and the tag is informational.
+  digest: ""
+  # -- Image pull policy.
+  pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+  # -- Allow an `image.tag` whose major version differs from the chart's
+  # appVersion. The chart's defaults and migrations are written for one major
+  # version; other majors are untested.
+  allowUnsupportedVersion: false
+
+# -- Pod security context for every pod running the Appwrite image.
+# UID/GID 82 is `www-data`, which owns `/storage` in the image.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 82
+  runAsGroup: 82
+  fsGroup: 82
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container security context for every container running the Appwrite image.
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  privileged: false
+  capabilities:
+    drop: [ALL]
+
+# Defaults for the pods the chart runs: Appwrite, the console and other
+# components, the datastores and the executor. The scheduling keys also apply
+# to the migration Job and `helm test` pods. Build Jobs take theirs from
+# `compute.builds` instead. A component's own non-empty value replaces a
+# default; its pod annotations and labels are merged over these.
+defaults:
+  # -- Annotations added to every Deployment and StatefulSet pod (not the
+  # migration Job or `helm test` pods).
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Labels added to every Deployment and StatefulSet pod (not the
+  # migration Job or `helm test` pods).
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector for every pod.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations for every pod.
+  tolerations: [] # @schema item: object
+  # -- Affinity for every pod.
+  affinity: {} # @schema additionalProperties: true
+  # -- Topology spread constraints for every pod. The component's selector labels
+  # are filled in when `labelSelector` is omitted. Leave empty for a soft spread
+  # across nodes on scalable components.
+  topologySpreadConstraints: [] # @schema item: object
+  # -- Priority class for every pod.
+  priorityClassName: ""
+  # -- Old ReplicaSets (and StatefulSet revisions) kept for `kubectl rollout undo`.
+  revisionHistoryLimit: 10 # @schema minimum: 0
+  # -- Extra `/etc/hosts` entries for every pod (HostAlias objects).
+  hostAliases: [] # @schema item: object
+  # -- DNS policy for every pod. Empty uses the Kubernetes default (`ClusterFirst`).
+  dnsPolicy: "" # @schema enum: ["", ClusterFirst, ClusterFirstWithHostNet, Default, None]
+  # -- DNS settings for every pod (PodDNSConfig), e.g. `options: [{name: ndots, value: "2"}]`.
+  dnsConfig: {} # @schema additionalProperties: true
+
+# ServiceAccount shared by the chart's pods. The orchestrator and the executor
+# get ServiceAccounts of their own.
+serviceAccount:
+  # -- Create the shared ServiceAccount.
+  create: true
+  # -- Name of the ServiceAccount. Defaults to the fullname when `create` is true, `default` otherwise.
+  name: ""
+  # -- Annotations for the ServiceAccount.
+  annotations: {} # @schema additionalProperties: {type: string}
+  # -- `automountServiceAccountToken` on the ServiceAccount object. The chart's
+  # pods set it to false themselves, which takes precedence, so this only
+  # affects other pods that use the ServiceAccount. Appwrite doesn't call
+  # the Kubernetes API.
+  automountServiceAccountToken: false
+
+# Appwrite configuration shared by every Appwrite pod. The chart turns these
+# into `_APP_*` environment variables; see `config` for anything not covered.
+appwrite:
+  # -- Hostname of the Appwrite API and console (`_APP_DOMAIN`). Required.
+  domain: ""
+  # -- Hostname of the console (`_APP_CONSOLE_DOMAIN`). Defaults to `domain`.
+  consoleDomain: ""
+  # -- Parent domain for function preview URLs (`_APP_DOMAIN_FUNCTIONS`). Defaults to `functions.<domain>`.
+  functionsDomain: ""
+  # -- Parent domain for site preview URLs (`_APP_DOMAIN_SITES`). Defaults to `sites.<domain>`.
+  sitesDomain: ""
+  domainTargets:
+    # -- Hostname custom domains must CNAME to (`_APP_DOMAIN_TARGET_CNAME`). Defaults to `domain`.
+    cname: ""
+    # -- IPv4 addresses custom domains may point an A record to, comma-separated (`_APP_DOMAIN_TARGET_A`).
+    a: ""
+    # -- IPv6 addresses custom domains may point an AAAA record to, comma-separated (`_APP_DOMAIN_TARGET_AAAA`).
+    aaaa: ""
+    # -- CAA record value custom domains must allow (`_APP_DOMAIN_TARGET_CAA`).
+    caa: ""
+  # -- Redirect HTTP to HTTPS and generate HTTPS URLs (`_APP_OPTIONS_FORCE_HTTPS`
+  # and `_APP_OPTIONS_ROUTER_FORCE_HTTPS`). Turn it off only when TLS isn't
+  # terminated in front of Appwrite.
+  forceHttps: true
+  # -- Reject requests for hostnames Appwrite doesn't know, and stop serving
+  # the console on custom project domains (`_APP_OPTIONS_ROUTER_PROTECTION`).
+  # Appwrite recommends it in production.
+  routerProtection: false
+  # -- Have Appwrite issue Let's Encrypt certificates for function and site
+  # subdomains (`_APP_ROUTER_AUTO_CERTIFICATES`). Off by default: TLS for
+  # wildcard domains is expected to terminate at the ingress or Gateway.
+  autoCertificates: false
+  # -- Email Let's Encrypt certificates are registered with
+  # (`_APP_EMAIL_CERTIFICATES`). Required, even with `autoCertificates` off.
+  certificatesEmail: ""
+  # -- Log format (`_APP_LOGGING_FORMAT`).
+  logFormat: json # @schema enum: [json, pretty]
+  # -- Collect usage statistics in ClickHouse (`_APP_USAGE_STATS`).
+  usageStats: true
+  # -- Swoole worker processes per CPU in the API (`_APP_WORKER_PER_CORE`):
+  # the API runs `_APP_CPU_NUM` times this many. Every Appwrite pod also
+  # divides its database pools by `_APP_CPU_NUM` times this value (see
+  # `database.connectionsMax`).
+  workerPerCore: 6 # @schema minimum: 1
+  console:
+    # -- Only the first user can sign up to the console; everyone else needs an invite (`_APP_CONSOLE_WHITELIST_ROOT`).
+    whitelistRoot: true
+    # -- Emails allowed to sign up to the console (`_APP_CONSOLE_WHITELIST_EMAILS`).
+    whitelistEmails: [] # @schema item: string
+    # -- IPs allowed to sign up to the console (`_APP_CONSOLE_WHITELIST_IPS`).
+    whitelistIPs: [] # @schema item: string
+  system:
+    # -- Sender name for emails Appwrite sends (`_APP_SYSTEM_EMAIL_NAME`).
+    emailName: Appwrite
+    # -- Sender address for emails Appwrite sends (`_APP_SYSTEM_EMAIL_ADDRESS`). Defaults to `noreply@<domain>`.
+    emailAddress: ""
+    # -- Address shown to users for security issues (`_APP_EMAIL_SECURITY`).
+    securityEmailAddress: ""
+  # Core secrets. Back up `_APP_OPENSSL_KEY_V1`: without it, encrypted data
+  # can't be read. See docs/security.md#credentials.
+  secrets:
+    # -- Existing Secret holding the core secrets, under the key names in
+    # `keys`. When empty the chart generates them once and keeps them across
+    # upgrades and uninstalls.
+    existingSecret: ""
+    # -- Generate missing credentials: core secrets, built-in datastore
+    # passwords and compute secrets. Set to false with GitOps tools that
+    # render templates without cluster access (Argo CD, `helm template`),
+    # where generated values would change on every render; rendering then
+    # fails for any credential not given explicitly or in an existing Secret.
+    # See docs/gitops.md.
+    generate: true
+    # -- Allow `opensslKey` to differ from the key already stored in the
+    # cluster. Appwrite can't re-encrypt data, so changing the key makes
+    # encrypted data unreadable.
+    allowKeyRotation: false
+    keys:
+      # -- Key in `existingSecret` holding `_APP_OPENSSL_KEY_V1`, which encrypts data at rest and signs JWTs.
+      opensslKey: _APP_OPENSSL_KEY_V1
+      # -- Key in `existingSecret` holding `_APP_NOTIFICATIONS_TRACKING_SECRET`, which signs notification tracking tokens.
+      trackingSecret: _APP_NOTIFICATIONS_TRACKING_SECRET
+      # -- Key in `existingSecret` holding `_APP_GEO_SECRET`, the token Appwrite authenticates to the geo service with.
+      geoSecret: _APP_GEO_SECRET
+    # -- Explicit `_APP_OPENSSL_KEY_V1`, e.g. when migrating from Docker. Never change it after install.
+    opensslKey: ""
+    # -- Explicit `_APP_NOTIFICATIONS_TRACKING_SECRET`.
+    trackingSecret: ""
+    # -- Explicit `_APP_GEO_SECRET`.
+    geoSecret: ""
+  # -- Extra `_APP_*` environment variables for every Appwrite pod, e.g. Git
+  # deployments, SMS or console sign-in (docs/integrations.md). They
+  # override the chart's defaults and computed values, including those set
+  # per container (`_APP_CPU_NUM`, `_APP_WORKERS_NUM`,
+  # `_APP_WORKER_MAX_COROUTINES`, `_APP_CONNECTIONS_DB_*`), except
+  # credentials, which come from Secrets. See
+  # https://appwrite.io/docs/advanced/self-hosting/configuration/environment-variables.
+  config: {} # @schema additionalProperties: {type: [string, number, boolean]}; patternProperties: {"^_APP_[A-Z0-9_]+$": {}}
+  # -- Extra sensitive `_APP_*` environment variables, stored in a Secret.
+  # Same precedence as `config`; changing them restarts Appwrite pods.
+  secretConfig: {} # @schema additionalProperties: {type: string}
+  # -- Extra environment variables for every Appwrite container, as a list of EnvVar objects.
+  extraEnv: [] # @schema item: object
+  # -- Extra `envFrom` sources for every Appwrite container.
+  extraEnvFrom: [] # @schema item: object
+  # -- Extra volumes for every Appwrite pod, e.g. a CA certificate for
+  # verifying the database's TLS certificate.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for every Appwrite container.
+  extraVolumeMounts: [] # @schema item: object
+
+# Main database. `builtin` runs the chart's PostgreSQL (a single-replica
+# StatefulSet for evaluation and small installs); `external` connects to
+# your own server. See docs/external-databases.md.
+database:
+  # -- `builtin` deploys PostgreSQL in the release; `external` uses `database.external`.
+  mode: builtin # @schema enum: [builtin, external]
+  # -- Database engine (`_APP_DB_ADAPTER`). `builtin` is always PostgreSQL;
+  # PostgreSQL is also the recommended external engine.
+  adapter: postgresql # @schema enum: [postgresql, mariadb, mysql, mongodb]
+  # -- Database (schema) name (`_APP_DB_SCHEMA`).
+  name: appwrite
+  # -- User (`_APP_DB_USER`).
+  username: appwrite
+  # -- Database connection budget Appwrite sizes its pools from
+  # (`_APP_CONNECTIONS_MAX`). Every Appwrite process gets pools of
+  # `connectionsMax / poolClients / (_APP_CPU_NUM * _APP_WORKER_PER_CORE)`
+  # connections, rounded down, but at least 1 and at least
+  # `_APP_WORKER_MAX_COROUTINES`, with separate pools for the `console` and
+  # `database_db_main` connections. Pools fill on demand, and at peak the
+  # total can exceed this value. Keep it well below the database's
+  # `max_connections`; see docs/external-databases.md#connections.
+  connectionsMax: 151 # @schema minimum: 1
+  # -- Divisor of `connectionsMax` (`_APP_POOL_CLIENTS`), meant as the number
+  # of Appwrite pods sharing it. Set it to at least the number of Appwrite
+  # pods, counting autoscalers at `maxReplicas`; NOTES warns when it's lower.
+  poolClients: 15 # @schema minimum: 1
+  password:
+    # -- Password, set inline. Stored in the chart's Secret. With `builtin`, empty generates one and keeps it; PostgreSQL only reads it when it first creates the database.
+    value: ""
+    # -- Existing Secret holding the password. Takes precedence over `value`.
+    secretName: ""
+    # -- Key in the Secret.
+    secretKey: db-password
+  external:
+    # -- Hostname of your database server.
+    host: ""
+    # -- Port. Empty uses the engine's standard port.
+    port: "" # @schema type: [string, integer]
+  # Settings of the built-in PostgreSQL (`mode: builtin`).
+  builtin:
+    image:
+      # -- Image registry.
+      registry: docker.io
+      # -- Image repository. Appwrite's image is PostgreSQL 18 with the extensions Appwrite needs.
+      repository: appwrite/postgres
+      # -- Image tag.
+      tag: 0.1.0
+      # -- Image digest.
+      digest: ""
+      # -- Image pull policy.
+      pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+    # -- `max_connections`. Defaults to `database.connectionsMax` + 20;
+    # the chart rejects a value below `connectionsMax`.
+    maxConnections: "" # @schema type: [string, integer]
+    # -- Extra PostgreSQL settings passed as `-c name=value`.
+    extraConfig: {} # @schema additionalProperties: {type: [string, number, boolean]}
+    # -- Resource requests and limits.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 2Gi
+    persistence:
+      # -- Persist data in a PersistentVolumeClaim. Data is lost on restart when disabled.
+      enabled: true
+      # -- Storage class. Empty uses `global.storageClass`, then the cluster
+      # default; `-` requests no class.
+      storageClass: ""
+      # -- Access modes.
+      accessModes: [ReadWriteOnce] # @schema item: string
+      # -- Volume size.
+      size: 10Gi
+      # -- Annotations for the PersistentVolumeClaim.
+      annotations: {} # @schema additionalProperties: {type: string}
+    # -- Pod security context. The image's `postgres` user is UID 999.
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 999
+      runAsGroup: 999
+      fsGroup: 999
+      fsGroupChangePolicy: OnRootMismatch
+      seccompProfile:
+        type: RuntimeDefault
+    # -- Container security context.
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      privileged: false
+      capabilities:
+        drop: [ALL]
+    # -- Pod annotations, merged over `defaults.podAnnotations`.
+    podAnnotations: {} # @schema additionalProperties: {type: string}
+    # -- Pod labels, merged over `defaults.podLabels`.
+    podLabels: {} # @schema additionalProperties: {type: string}
+    # -- Node selector. Empty inherits `defaults.nodeSelector`.
+    nodeSelector: {} # @schema additionalProperties: {type: string}
+    # -- Tolerations. Empty inherits `defaults.tolerations`.
+    tolerations: [] # @schema item: object
+    # -- Affinity. Empty inherits `defaults.affinity`.
+    affinity: {} # @schema additionalProperties: true
+    # -- Priority class. Empty inherits `defaults.priorityClassName`.
+    priorityClassName: ""
+    # -- Seconds to wait on shutdown.
+    terminationGracePeriodSeconds: 60
+    # -- Extra environment variables, as a list of EnvVar objects.
+    extraEnv: [] # @schema item: object
+    # -- Extra volumes.
+    extraVolumes: [] # @schema item: object
+    # -- Extra volume mounts for the main container.
+    extraVolumeMounts: [] # @schema item: object
+    # -- Extra init containers.
+    extraInitContainers: [] # @schema item: object
+    # -- Extra sidecar containers.
+    extraContainers: [] # @schema item: object
+    # -- Shared memory for PostgreSQL (`/dev/shm`). Container runtimes give 64Mi by
+    # default, which parallel queries and large index builds outgrow. It counts
+    # against the memory limit.
+    shm:
+      # -- Mount a memory-backed `/dev/shm`.
+      enabled: true
+      # -- Size limit of `/dev/shm`.
+      sizeLimit: 256Mi
+    metrics:
+      # -- Run a postgres_exporter sidecar and expose it on port 9187 of the
+      # Service. See docs/production.md#monitoring.
+      enabled: false
+      image:
+        # -- Image registry.
+        registry: quay.io
+        # -- Image repository.
+        repository: prometheuscommunity/postgres-exporter
+        # -- Image tag.
+        tag: v0.20.1
+        # -- Image digest.
+        digest: ""
+        # -- Image pull policy.
+        pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+      # -- Resource requests and limits of the exporter.
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 128Mi
+
+# DocumentsDB databases, backed by a MongoDB replica set of your own.
+documentsDb:
+  # -- Enable DocumentsDB databases (`_APP_DOCUMENTSDB`).
+  enabled: false
+  # -- MongoDB hostname.
+  host: ""
+  # -- MongoDB port.
+  port: 27017 # @schema type: [string, integer]
+  # -- Database name. Empty uses `database.name`.
+  name: ""
+  # -- User. Empty uses `database.username`.
+  username: ""
+  password:
+    # -- Password, set inline. Stored in the chart's Secret. Empty uses `database.password`.
+    value: ""
+    # -- Existing Secret holding the password. Takes precedence over `value`.
+    secretName: ""
+    # -- Key in the Secret.
+    secretKey: documentsdb-password
+
+# VectorsDB databases, backed by PostgreSQL with pgvector.
+vectorsDb:
+  # -- Enable VectorsDB databases (`_APP_VECTORSDB`).
+  enabled: false
+  # -- PostgreSQL hostname. Empty uses the main database, which must then be PostgreSQL.
+  host: ""
+  # -- PostgreSQL port.
+  port: 5432 # @schema type: [string, integer]
+  # -- Database name. Empty uses `database.name`.
+  name: ""
+  # -- User. Empty uses `database.username`.
+  username: ""
+  password:
+    # -- Password, set inline. Stored in the chart's Secret. Empty uses `database.password`.
+    value: ""
+    # -- Existing Secret holding the password. Takes precedence over `value`.
+    secretName: ""
+    # -- Key in the Secret.
+    secretKey: vectorsdb-password
+
+# Redis, for queues, cache, pub/sub and locks. `builtin` runs a
+# single-replica StatefulSet; `external` connects to a single endpoint
+# without TLS (Appwrite 2.3.0 has no Redis TLS, Sentinel or Cluster).
+# See docs/external-databases.md#redis.
+redis:
+  # -- `builtin` deploys Redis in the release; `external` uses `redis.external`.
+  mode: builtin # @schema enum: [builtin, external]
+  # -- ACL user (`_APP_REDIS_USER`), external only. The MQTT server ignores
+  # it, so leave it empty when MQTT is enabled.
+  username: ""
+  password:
+    # -- Password, set inline. Stored in the chart's Secret. With `builtin`, empty generates one (see `builtin.requirePassword`); with `external`, empty means no AUTH.
+    value: ""
+    # -- Existing Secret holding the password. Takes precedence over `value`.
+    secretName: ""
+    # -- Key in the Secret.
+    secretKey: redis-password
+  external:
+    # -- Hostname of your Redis.
+    host: ""
+    # -- Port.
+    port: 6379 # @schema type: [string, integer]
+  # Settings of the built-in Redis (`mode: builtin`).
+  builtin:
+    # -- Require a password (`redis.password`).
+    requirePassword: true
+    image:
+      # -- Image registry.
+      registry: docker.io
+      # -- Image repository. `valkey/valkey` works as a drop-in replacement,
+      # with a Valkey tag (e.g. `8-alpine`).
+      repository: library/redis
+      # -- Image tag.
+      tag: 7.4.7-alpine
+      # -- Image digest.
+      digest: ""
+      # -- Image pull policy.
+      pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+    # -- `maxmemory`. Keep it below the memory limit.
+    maxmemory: 512mb
+    # -- `maxmemory-policy`. Appwrite's Docker install uses `allkeys-lru`.
+    maxmemoryPolicy: allkeys-lru
+    # -- Resource requests and limits.
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 768Mi
+    persistence:
+      # -- Persist data in a PersistentVolumeClaim.
+      enabled: true
+      # -- Storage class. Empty uses `global.storageClass`, then the cluster
+      # default; `-` requests no class.
+      storageClass: ""
+      # -- Access modes.
+      accessModes: [ReadWriteOnce] # @schema item: string
+      # -- Volume size.
+      size: 2Gi
+      # -- Annotations for the PersistentVolumeClaim.
+      annotations: {} # @schema additionalProperties: {type: string}
+    # -- Pod security context. The image's `redis` user is UID 999.
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 999
+      runAsGroup: 999
+      fsGroup: 999
+      fsGroupChangePolicy: OnRootMismatch
+      seccompProfile:
+        type: RuntimeDefault
+    # -- Container security context.
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      privileged: false
+      capabilities:
+        drop: [ALL]
+    # -- Pod annotations, merged over `defaults.podAnnotations`.
+    podAnnotations: {} # @schema additionalProperties: {type: string}
+    # -- Pod labels, merged over `defaults.podLabels`.
+    podLabels: {} # @schema additionalProperties: {type: string}
+    # -- Node selector. Empty inherits `defaults.nodeSelector`.
+    nodeSelector: {} # @schema additionalProperties: {type: string}
+    # -- Tolerations. Empty inherits `defaults.tolerations`.
+    tolerations: [] # @schema item: object
+    # -- Affinity. Empty inherits `defaults.affinity`.
+    affinity: {} # @schema additionalProperties: true
+    # -- Priority class. Empty inherits `defaults.priorityClassName`.
+    priorityClassName: ""
+    # -- Seconds to wait on shutdown.
+    terminationGracePeriodSeconds: 60
+    # -- Extra environment variables, as a list of EnvVar objects.
+    extraEnv: [] # @schema item: object
+    # -- Extra volumes.
+    extraVolumes: [] # @schema item: object
+    # -- Extra volume mounts for the main container.
+    extraVolumeMounts: [] # @schema item: object
+    # -- Extra init containers.
+    extraInitContainers: [] # @schema item: object
+    # -- Extra sidecar containers.
+    extraContainers: [] # @schema item: object
+    metrics:
+      # -- Run a redis_exporter sidecar and expose it on port 9121 of the
+      # Service. See docs/production.md#monitoring.
+      enabled: false
+      image:
+        # -- Image registry.
+        registry: docker.io
+        # -- Image repository.
+        repository: oliver006/redis_exporter
+        # -- Image tag.
+        tag: v1.93.0-alpine
+        # -- Image digest.
+        digest: ""
+        # -- Image pull policy.
+        pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+      # -- Resource requests and limits of the exporter.
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 128Mi
+
+# ClickHouse, for usage statistics and execution logs. `builtin` runs a
+# single-replica StatefulSet; `external` connects over HTTP(S). See
+# docs/external-databases.md#clickhouse.
+clickhouse:
+  # -- `builtin` deploys ClickHouse in the release; `external` uses `clickhouse.external`.
+  mode: builtin # @schema enum: [builtin, external]
+  # -- Database name.
+  database: appwrite
+  # -- User.
+  username: appwrite
+  password:
+    # -- Password, set inline. Stored in the chart's Secret. Must be URL-safe (letters, digits, `-_.~`). With `builtin`, empty generates one.
+    value: ""
+    # -- Existing Secret holding the password. Takes precedence over `value`.
+    secretName: ""
+    # -- Key in the Secret.
+    secretKey: clickhouse-password
+  external:
+    # -- HTTP(S) endpoint without a path, e.g. `https://abc.clickhouse.cloud:8443`.
+    url: ""
+  # Settings of the built-in ClickHouse (`mode: builtin`).
+  builtin:
+    image:
+      # -- Image registry.
+      registry: docker.io
+      # -- Image repository.
+      repository: clickhouse/clickhouse-server
+      # -- Image tag.
+      tag: 26.4.3-alpine
+      # -- Image digest.
+      digest: ""
+      # -- Image pull policy.
+      pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+    # -- Resource requests and limits.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 2Gi
+    persistence:
+      # -- Persist data in a PersistentVolumeClaim.
+      enabled: true
+      # -- Storage class. Empty uses `global.storageClass`, then the cluster
+      # default; `-` requests no class.
+      storageClass: ""
+      # -- Access modes.
+      accessModes: [ReadWriteOnce] # @schema item: string
+      # -- Volume size.
+      size: 10Gi
+      # -- Annotations for the PersistentVolumeClaim.
+      annotations: {} # @schema additionalProperties: {type: string}
+    # -- Pod security context. The image's `clickhouse` user is UID 101.
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 101
+      runAsGroup: 101
+      fsGroup: 101
+      fsGroupChangePolicy: OnRootMismatch
+      seccompProfile:
+        type: RuntimeDefault
+    # -- Container security context.
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      privileged: false
+      capabilities:
+        drop: [ALL]
+    # -- Pod annotations, merged over `defaults.podAnnotations`.
+    podAnnotations: {} # @schema additionalProperties: {type: string}
+    # -- Pod labels, merged over `defaults.podLabels`.
+    podLabels: {} # @schema additionalProperties: {type: string}
+    # -- Node selector. Empty inherits `defaults.nodeSelector`.
+    nodeSelector: {} # @schema additionalProperties: {type: string}
+    # -- Tolerations. Empty inherits `defaults.tolerations`.
+    tolerations: [] # @schema item: object
+    # -- Affinity. Empty inherits `defaults.affinity`.
+    affinity: {} # @schema additionalProperties: true
+    # -- Priority class. Empty inherits `defaults.priorityClassName`.
+    priorityClassName: ""
+    # -- Seconds to wait on shutdown.
+    terminationGracePeriodSeconds: 60
+    # -- Extra environment variables, as a list of EnvVar objects.
+    extraEnv: [] # @schema item: object
+    # -- Extra volumes.
+    extraVolumes: [] # @schema item: object
+    # -- Extra volume mounts for the main container.
+    extraVolumeMounts: [] # @schema item: object
+    # -- Extra init containers.
+    extraInitContainers: [] # @schema item: object
+    # -- Extra sidecar containers.
+    extraContainers: [] # @schema item: object
+    metrics:
+      # -- Serve ClickHouse's built-in Prometheus endpoint on port 9363 of the
+      # Service (`/metrics`). No sidecar. See docs/production.md#monitoring.
+      enabled: false
+
+# Files: uploads, deployments, builds, certificates. `local` keeps them on
+# the `/storage` volume, `s3` in an S3-compatible bucket (required for
+# Functions and Sites). See docs/storage.md.
+storage:
+  # -- Where Appwrite stores files (`_APP_STORAGE_DEVICE`).
+  device: local # @schema enum: [local, s3]
+  # -- Maximum file size in bytes (`_APP_STORAGE_LIMIT`).
+  limit: 30000000 # @schema minimum: 0
+  # -- Maximum size in bytes of files Appwrite renders previews for (`_APP_STORAGE_PREVIEW_LIMIT`).
+  previewLimit: 20000000 # @schema minimum: 0
+  s3:
+    # -- Endpoint of an S3-compatible store (`_APP_STORAGE_S3_ENDPOINT`), e.g.
+    # `https://fsn1.your-objectstorage.com` or
+    # `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3.
+    # Endpoints and regions per provider: docs/storage.md#s3.
+    endpoint: ""
+    # -- Region (`_APP_STORAGE_S3_REGION`).
+    region: us-east-1
+    # -- Bucket (`_APP_STORAGE_S3_BUCKET`). Required with `device: s3`.
+    bucket: ""
+    accessKeyId:
+      # -- Access key ID, set inline. Stored in the chart's Secret.
+      value: ""
+      # -- Existing Secret holding the access key id. Takes precedence over `value`.
+      secretName: ""
+      # -- Key in the Secret.
+      secretKey: s3-access-key
+    secretAccessKey:
+      # -- Secret access key, set inline. Stored in the chart's Secret.
+      value: ""
+      # -- Existing Secret holding the secret access key. Takes precedence over `value`.
+      secretName: ""
+      # -- Key in the Secret.
+      secretKey: s3-secret-key
+  # The `/storage` volume. Appwrite uses it for files with `device: local`,
+  # and for certificates and scratch files with either device.
+  volume:
+    # -- Persist `/storage` in a PersistentVolumeClaim. When disabled every pod
+    # gets its own emptyDir, which only works with a single API and worker pod
+    # (NOTES warns otherwise).
+    enabled: true
+    # -- Use an existing PersistentVolumeClaim instead of creating one.
+    existingClaim: ""
+    # -- Storage class. Empty uses `global.storageClass`, then the cluster
+    # default; `-` requests no class.
+    storageClass: ""
+    # -- Access modes. Use ReadWriteMany to spread API and worker pods across
+    # nodes. They mount `/storage` even with S3 storage, so a ReadWriteOnce
+    # volume pins them to one node (and the API gets no PodDisruptionBudget,
+    # which would block drains).
+    accessModes: [ReadWriteOnce] # @schema item: string
+    # -- Volume size.
+    size: 20Gi
+    # -- Annotations for the PersistentVolumeClaim.
+    annotations: {} # @schema additionalProperties: {type: string}
+    # -- Keep the PersistentVolumeClaim when the release is uninstalled.
+    keep: true
+    # -- With a ReadWriteOnce volume, schedule every pod that mounts it on the
+    # same node so the volume can be attached.
+    colocateReadWriteOnce: true
+
+# Outgoing email: verification, password recovery, invitations. See
+# docs/integrations.md#email-smtp.
+smtp:
+  # -- SMTP server (`_APP_SMTP_HOST`). Empty disables email.
+  host: ""
+  # -- SMTP port (`_APP_SMTP_PORT`).
+  port: 587 # @schema type: [integer, string]
+  # -- SMTP encryption (`_APP_SMTP_SECURE`): `tls` (STARTTLS) on 587, `ssl` on 465.
+  secure: tls # @schema enum: ["", tls, ssl]
+  # -- SMTP username (`_APP_SMTP_USERNAME`).
+  username: ""
+  password:
+    # -- Password, set inline. Stored in the chart's Secret.
+    value: ""
+    # -- Existing Secret holding the password. Takes precedence over `value`.
+    secretName: ""
+    # -- Key in the Secret.
+    secretKey: smtp-password
+
+# Functions and Sites run on Open Runtimes services, both deployed by the
+# chart: the orchestrator starts each build as a Kubernetes Job in a namespace
+# of its own, and the executor runs executions on Docker-in-Docker in another.
+# See docs/executor.md.
+compute:
+  # -- Enable Functions and Sites. Needs `storage.device: s3` and
+  # `compute.executor.privileged` (see docs/executor.md).
+  enabled: false
+  # The open-runtimes executor, which starts a container per function or site
+  # runtime and executes requests in it. It needs a Docker daemon, so it runs
+  # on Docker-in-Docker, in a namespace of its own.
+  executor:
+    # -- Run the Docker daemon as a privileged container, which makes it root
+    # on its node. Required unless `runtimeClassName` names a runtime that runs
+    # Docker without it, such as Sysbox. Give the executor nodes of its own
+    # (`nodeSelector`, `tolerations`).
+    privileged: false
+    # -- RuntimeClass of executor pods, e.g. `sysbox-runc`.
+    runtimeClassName: ""
+    # -- Namespace of the executor. Defaults to `<release namespace>-executor`.
+    # Use a different one per release when several releases share a namespace.
+    namespace: ""
+    # -- Create the namespace, labelled for the `privileged` Pod Security
+    # Standard. Set to false to create it yourself.
+    createNamespace: true
+    # -- Executor replicas. Each has its own Docker daemon: a runtime starts on
+    # the replica an execution reaches and stays there until it's idle.
+    replicaCount: 1 # @schema minimum: 0
+    image:
+      # -- Image registry. The executor image is pulled by the Docker daemon in
+      # the pod, not by the kubelet, so image pull secrets don't apply to it.
+      registry: docker.io
+      # -- Image repository.
+      repository: openruntimes/executor
+      # -- Image tag.
+      tag: 0.29.0
+      # -- Image digest.
+      digest: ""
+    dind:
+      image:
+        # -- Image registry.
+        registry: docker.io
+        # -- Image repository of the Docker daemon, also used to start the executor.
+        repository: library/docker
+        # -- Image tag.
+        tag: 29.9.0-dind
+        # -- Image digest.
+        digest: ""
+        # -- Image pull policy.
+        pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+      # -- Addresses of the Docker daemon's networks, split into /24s: its
+      # bridge and the runtimes' network. They shadow anything the executor
+      # and runtimes would reach in the same range, so it must not overlap the
+      # S3 endpoint, the cluster or your networks. Docker's own default,
+      # 172.17.0.0/16 onwards, often does; this one is reserved for
+      # benchmarking (RFC 2544) and routed nowhere.
+      addressPool: 198.18.0.0/15
+      # -- Extra arguments for `dockerd`, e.g. `--registry-mirror=https://mirror.example.com`.
+      extraArgs: [] # @schema item: string
+      # -- Volume source for the Docker daemon's images and containers, e.g.
+      # `{ephemeral: {volumeClaimTemplate: ...}}`. Empty is an `emptyDir` of at
+      # most 20Gi; runtime images are pulled again when the pod is replaced.
+      volume: {}
+    # -- Resources of the Docker daemon container, which runs the executor and
+    # every runtime: size it for the executions you expect.
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        memory: 4Gi
+    # -- Seconds a runtime may stay idle before it's removed
+    # (`OPR_EXECUTOR_INACTIVE_THRESHOLD`). The executor removes idle runtimes
+    # in its maintenance pass, which the chart runs hourly
+    # (`OPR_EXECUTOR_MAINTENANCE_INTERVAL`), so a runtime can stay up to an
+    # hour longer.
+    inactiveThreshold: 60
+    # -- Runtime images to pull when the executor starts (`OPR_EXECUTOR_IMAGES`).
+    # Empty derives them from `functionsRuntimes` and `sitesRuntimes`, e.g.
+    # `node-22` becomes `openruntimes/node:v5-22`; with both of those empty
+    # too, nothing is pulled ahead of the first executions.
+    images: [] # @schema item: string
+    # -- Secret in the executor namespace with the keys `executor-secret`,
+    # `s3-access-key` and `s3-secret-key`. Pods can't read Secrets in other
+    # namespaces, so it's required when `compute.secrets.existingSecret` or
+    # an S3 `secretName` (`storage.s3.accessKeyId`) is set. Otherwise the chart creates it.
+    existingSecret: ""
+    networkPolicy:
+      # -- Restrict executor pods' traffic: incoming only from Appwrite pods of
+      # this release; outgoing (which includes every runtime) only to DNS, the
+      # S3 endpoint and public addresses. Takes effect only with a CNI that
+      # enforces NetworkPolicies.
+      enabled: true
+      # -- Extra egress rules (NetworkPolicyEgressRule) for executor pods, e.g.
+      # an S3 endpoint on a private network that isn't an IP address, or a
+      # registry mirror.
+      extraEgress: [] # @schema item: object
+      # -- CIDRs executor pods may not reach, on top of the private, link-local,
+      # CGNAT and special-purpose ranges always blocked.
+      deniedCIDRs: [] # @schema item: string
+    # -- Seconds to wait on shutdown.
+    terminationGracePeriodSeconds: 60
+    # -- Extra environment variables for the executor. Variables named
+    # `OPR_EXECUTOR_*` are passed on to it, e.g. `OPR_EXECUTOR_DOCKER_HUB_USERNAME`
+    # and `OPR_EXECUTOR_DOCKER_HUB_PASSWORD` to pull runtime images as a Docker Hub user.
+    extraEnv: [] # @schema item: object
+    # -- Pod annotations, merged over `defaults.podAnnotations`.
+    podAnnotations: {} # @schema additionalProperties: {type: string}
+    # -- Pod labels, merged over `defaults.podLabels`.
+    podLabels: {} # @schema additionalProperties: {type: string}
+    # -- Node selector. Empty inherits `defaults.nodeSelector`.
+    nodeSelector: {} # @schema additionalProperties: {type: string}
+    # -- Tolerations. Empty inherits `defaults.tolerations`.
+    tolerations: [] # @schema item: object
+    # -- Affinity. Empty inherits `defaults.affinity`.
+    affinity: {} # @schema additionalProperties: true
+    # -- Topology spread constraints. Empty inherits `defaults.topologySpreadConstraints`, or spreads replicas across nodes.
+    topologySpreadConstraints: [] # @schema item: object
+    # -- Priority class. Empty inherits `defaults.priorityClassName`.
+    priorityClassName: ""
+  # The open-runtimes orchestrator, which starts every build as a Kubernetes
+  # Job in `compute.builds.namespace`.
+  orchestrator:
+    image:
+      # -- Image registry.
+      registry: ghcr.io
+      # -- Image repository: the orchestrator's jobs service, with the Kubernetes backend.
+      repository: open-runtimes/orchestrator/jobs-service
+      # -- Image tag.
+      tag: 2.2.2
+      # -- Image digest.
+      digest: ""
+      # -- Image pull policy.
+      pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+    # -- Resource requests and limits.
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+    # -- Pod security context. The image's `nonroot` user is UID 65532.
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65532
+      runAsGroup: 65532
+      seccompProfile:
+        type: RuntimeDefault
+    # -- Container security context.
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      privileged: false
+      capabilities:
+        drop: [ALL]
+    # -- Pod annotations, merged over `defaults.podAnnotations`.
+    podAnnotations: {} # @schema additionalProperties: {type: string}
+    # -- Pod labels, merged over `defaults.podLabels`.
+    podLabels: {} # @schema additionalProperties: {type: string}
+    # -- Node selector. Empty inherits `defaults.nodeSelector`.
+    nodeSelector: {} # @schema additionalProperties: {type: string}
+    # -- Tolerations. Empty inherits `defaults.tolerations`.
+    tolerations: [] # @schema item: object
+    # -- Affinity. Empty inherits `defaults.affinity`.
+    affinity: {} # @schema additionalProperties: true
+    # -- Priority class. Empty inherits `defaults.priorityClassName`.
+    priorityClassName: ""
+  # Build Jobs. Builds run the build commands of your functions and sites, so
+  # they get their own namespace, admitted under the `baseline` Pod Security
+  # Standard, with no ServiceAccount token and a NetworkPolicy that keeps them
+  # away from the rest of the cluster. They run the runtime images
+  # (`openruntimes/*`) and the sidecar below, without image pull secrets.
+  builds:
+    # -- Namespace for build Jobs. Defaults to `<release namespace>-builds`.
+    # Use a different one per release when several releases share a namespace.
+    namespace: ""
+    # -- Create the namespace, labelled for the `baseline` Pod Security Standard.
+    # Set to false to create it yourself.
+    createNamespace: true
+    sidecarImage:
+      # -- Image registry.
+      registry: ghcr.io
+      # -- Image repository of the sidecar that moves sources, outputs and caches for each build.
+      repository: open-runtimes/orchestrator/job-sidecar
+      # -- Image tag.
+      tag: 2.2.2
+      # -- Image digest.
+      digest: ""
+    # -- Divides each build's CPU limit to get its CPU request
+    # (`KUBE_CPU_OVERCOMMIT`). The limit is the build specification: by
+    # default 8 CPUs for functions and 2 for sites, lower when
+    # `_APP_COMPUTE_CPUS` (in `appwrite.config`) caps it. The default
+    # requests 1 CPU for an 8-CPU build.
+    cpuOvercommit: 8 # @schema minimum: 1
+    # -- Divides each build's memory limit to get its memory request
+    # (`KUBE_MEMORY_OVERCOMMIT`). The limit is the build specification: by
+    # default 8 GiB for functions and 2 GiB for sites, lower when
+    # `_APP_COMPUTE_MEMORY` (in `appwrite.config`) caps it. The default
+    # requests 1 GiB for an 8 GiB build.
+    memoryOvercommit: 8 # @schema minimum: 1
+    # -- How long finished build Jobs are kept (`JOB_RETENTION`).
+    retention: 15m
+    # -- Node selector for build pods.
+    nodeSelector: {} # @schema additionalProperties: {type: string}
+    # -- Tolerations for build pods.
+    tolerations: [] # @schema item: object
+    networkPolicy:
+      # -- Restrict build pods' traffic: no incoming connections; outgoing only
+      # to DNS, the API, the orchestrator, the S3 endpoint and public
+      # addresses. Takes effect only with a CNI that enforces NetworkPolicies.
+      enabled: true
+      # -- Extra egress rules (NetworkPolicyEgressRule) for build pods, e.g. an
+      # S3 endpoint on a private network that isn't an IP address, or a
+      # private package registry.
+      extraEgress: [] # @schema item: object
+      # -- CIDRs build pods may not reach, on top of the private, link-local,
+      # CGNAT and special-purpose ranges always blocked. Add pod, Service and
+      # node ranges that aren't private addresses (GKE privately used public
+      # ranges, IPv6 clusters).
+      deniedCIDRs: [] # @schema item: string
+  # -- Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the
+  # Docker installer's list (node-16.0, php-8.0, python-3.9, ruby-3.0).
+  functionsRuntimes: [] # @schema item: string
+  # -- Site runtimes to enable (`_APP_SITES_RUNTIMES`). Empty keeps the
+  # Docker installer's list (static-1, node-22, flutter-3.29). Sites build
+  # with `node-22`, so keep it in the list.
+  sitesRuntimes: [] # @schema item: string
+  secrets:
+    # -- Existing Secret holding the executor and orchestrator secrets. When
+    # empty, the chart generates them. With an existing Secret, the executor
+    # also needs `compute.executor.existingSecret` in its namespace.
+    existingSecret: ""
+    # -- Key holding the executor secret (`_APP_EXECUTOR_SECRET`, `OPR_EXECUTOR_SECRET` on the executor).
+    executorSecretKey: executor-secret
+    # -- Key holding the orchestrator API key (`_APP_JOBS_SECRET`, the file in `API_KEY_FILE` on the orchestrator).
+    orchestratorSecretKey: orchestrator-secret
+    # -- Explicit executor secret.
+    executorSecret: ""
+    # -- Explicit orchestrator API key.
+    orchestratorSecret: ""
+
+# The HTTP API (`php app/http.php`).
+api:
+  # -- Number of API replicas. Ignored when autoscaling is enabled.
+  replicaCount: 1 # @schema minimum: 0
+  # -- CPUs Appwrite sizes its worker and connection pools for (`_APP_CPU_NUM`).
+  # Derived from the CPU limit, then the CPU request, when empty.
+  cpuNum: "" # @schema type: [string, integer]
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+  autoscaling:
+    # -- Create a HorizontalPodAutoscaler.
+    enabled: false
+    # -- Minimum replicas.
+    minReplicas: 2
+    # -- Maximum replicas.
+    maxReplicas: 10
+    # -- Target average CPU utilisation, in percent.
+    targetCPUUtilizationPercentage: 75
+    # -- Target average memory utilisation, in percent. Empty disables the metric.
+    targetMemoryUtilizationPercentage: "" # @schema type: [string, integer]
+    # -- HPA scaling behaviour.
+    behavior: {} # @schema additionalProperties: true
+    # -- Metrics (MetricSpec list) that replace the CPU and memory targets,
+    # e.g. a Pods or External metric from a metrics adapter.
+    metrics: [] # @schema item: object
+  pdb:
+    # -- Create a PodDisruptionBudget when more than one replica can run.
+    enabled: true
+    # -- Minimum available pods. Takes precedence over `maxUnavailable`.
+    minAvailable: "" # @schema type: [string, integer]
+    # -- Maximum unavailable pods.
+    maxUnavailable: 1 # @schema type: [string, integer]
+  service:
+    # -- Service type.
+    type: ClusterIP
+    # -- Service port.
+    port: 80
+    # -- Service annotations.
+    annotations: {} # @schema additionalProperties: {type: string}
+  # -- Deployment update strategy.
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
+  # -- Seconds to wait for in-flight requests on shutdown. Swoole drains for up to 30s.
+  terminationGracePeriodSeconds: 45
+  # -- Seconds to sleep before shutdown so endpoints are removed first.
+  preStopSleepSeconds: 5
+  startupProbe:
+    # -- Enable the startup probe. The first start creates database schemas and can take minutes.
+    enabled: true
+    # -- Seconds to wait before the first probe.
+    initialDelaySeconds: 5
+    # -- Seconds between probes.
+    periodSeconds: 5
+    # -- Seconds before a probe times out.
+    timeoutSeconds: 5
+    # -- Consecutive failures before the probe counts as failed.
+    failureThreshold: 72
+  readinessProbe:
+    # -- Enable the readiness probe.
+    enabled: true
+    # -- Seconds between probes.
+    periodSeconds: 10
+    # -- Seconds before a probe times out.
+    timeoutSeconds: 5
+    # -- Consecutive failures before the probe counts as failed.
+    failureThreshold: 3
+    # -- Consecutive successes before the probe counts as passed again.
+    successThreshold: 1
+  livenessProbe:
+    # -- Enable the liveness probe.
+    enabled: true
+    # -- Seconds between probes.
+    periodSeconds: 10
+    # -- Seconds before a probe times out.
+    timeoutSeconds: 5
+    # -- Consecutive failures before the probe counts as failed.
+    failureThreshold: 6
+  # -- Pod security context, merged key by key over `podSecurityContext`.
+  podSecurityContext: {} # @schema additionalProperties: true
+  # -- Container security context, merged key by key over `containerSecurityContext`.
+  containerSecurityContext: {} # @schema additionalProperties: true
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Topology spread constraints. Empty inherits `defaults.topologySpreadConstraints`.
+  topologySpreadConstraints: [] # @schema item: object
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Extra environment variables for this component.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes for this component.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for the main container.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# The console web app (a separate image).
+console:
+  # -- Deploy the console.
+  enabled: true
+  image:
+    # -- Image registry.
+    registry: docker.io
+    # -- Image repository.
+    repository: appwrite/new
+    # -- Image tag. Pinned to the console that ships with the chart's appVersion.
+    tag: 1.1.159-self-hosted
+    # -- Image digest.
+    digest: ""
+    # -- Image pull policy.
+    pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+  # -- Environment variables for the console, as a map.
+  env:
+    VITE_CONSOLE_PROFILE: self-hosted
+    APPWRITE_ENDPOINT_SAME_ORIGIN: "true"
+    VITE_GROWTH_ENDPOINT: https://growth.appwrite.io/v1
+  # -- Number of console replicas. Ignored when autoscaling is enabled.
+  replicaCount: 1 # @schema minimum: 0
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  autoscaling:
+    # -- Create a HorizontalPodAutoscaler.
+    enabled: false
+    # -- Minimum replicas.
+    minReplicas: 2
+    # -- Maximum replicas.
+    maxReplicas: 5
+    # -- Target average CPU utilisation, in percent.
+    targetCPUUtilizationPercentage: 75
+    # -- Target average memory utilisation, in percent. Empty disables the metric.
+    targetMemoryUtilizationPercentage: "" # @schema type: [string, integer]
+    # -- HPA scaling behaviour.
+    behavior: {} # @schema additionalProperties: true
+    # -- Metrics (MetricSpec list) that replace the CPU and memory targets,
+    # e.g. a Pods or External metric from a metrics adapter.
+    metrics: [] # @schema item: object
+  pdb:
+    # -- Create a PodDisruptionBudget when more than one replica can run.
+    enabled: true
+    # -- Minimum available pods. Takes precedence over `maxUnavailable`.
+    minAvailable: "" # @schema type: [string, integer]
+    # -- Maximum unavailable pods.
+    maxUnavailable: 1 # @schema type: [string, integer]
+  service:
+    # -- Service type.
+    type: ClusterIP
+    # -- Service port.
+    port: 80
+    # -- Service annotations.
+    annotations: {} # @schema additionalProperties: {type: string}
+  # -- Deployment update strategy.
+  updateStrategy: {} # @schema additionalProperties: true
+  # -- Seconds to wait for in-flight requests on shutdown.
+  terminationGracePeriodSeconds: 30
+  startupProbe:
+    # -- Enable the startup probe.
+    enabled: true
+    # -- Seconds between probes.
+    periodSeconds: 5
+    # -- Seconds before a probe times out.
+    timeoutSeconds: 5
+    # -- Consecutive failures before the probe counts as failed.
+    failureThreshold: 30
+  readinessProbe:
+    # -- Enable the readiness probe.
+    enabled: true
+    # -- Seconds between probes.
+    periodSeconds: 10
+    # -- Seconds before a probe times out.
+    timeoutSeconds: 5
+    # -- Consecutive failures before the probe counts as failed.
+    failureThreshold: 3
+    # -- Consecutive successes before the probe counts as passed again.
+    successThreshold: 1
+  livenessProbe:
+    # -- Enable the liveness probe.
+    enabled: true
+    # -- Seconds between probes.
+    periodSeconds: 20
+    # -- Seconds before a probe times out.
+    timeoutSeconds: 5
+    # -- Consecutive failures before the probe counts as failed.
+    failureThreshold: 3
+  # -- Pod security context. The console image's `bun` user is UID 1000.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  # -- Container security context.
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: [ALL]
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Topology spread constraints. Empty inherits `defaults.topologySpreadConstraints`.
+  topologySpreadConstraints: [] # @schema item: object
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Extra environment variables, as a list of EnvVar objects.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for the main container.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# The realtime WebSocket server (`realtime`).
+realtime:
+  # -- Deploy the realtime server.
+  enabled: true
+  # -- Number of realtime replicas. Ignored when autoscaling is enabled.
+  replicaCount: 1 # @schema minimum: 0
+  # -- Swoole worker processes per pod (`_APP_WORKERS_NUM`). Prefer more replicas over more processes.
+  processes: 1 # @schema minimum: 1
+  # -- CPUs Appwrite sizes its connection pools for (`_APP_CPU_NUM`). Derived from resources when empty.
+  cpuNum: "" # @schema type: [string, integer]
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  autoscaling:
+    # -- Create a HorizontalPodAutoscaler.
+    enabled: false
+    # -- Minimum replicas.
+    minReplicas: 2
+    # -- Maximum replicas.
+    maxReplicas: 10
+    # -- Target average CPU utilisation, in percent.
+    targetCPUUtilizationPercentage: 75
+    # -- Target average memory utilisation, in percent. Empty disables the metric.
+    targetMemoryUtilizationPercentage: "" # @schema type: [string, integer]
+    # -- HPA scaling behaviour.
+    behavior: {} # @schema additionalProperties: true
+    # -- Metrics (MetricSpec list) that replace the CPU and memory targets,
+    # e.g. a Pods or External metric from a metrics adapter.
+    metrics: [] # @schema item: object
+  pdb:
+    # -- Create a PodDisruptionBudget when more than one replica can run.
+    enabled: true
+    # -- Minimum available pods. Takes precedence over `maxUnavailable`.
+    minAvailable: "" # @schema type: [string, integer]
+    # -- Maximum unavailable pods.
+    maxUnavailable: 1 # @schema type: [string, integer]
+  service:
+    # -- Service type.
+    type: ClusterIP
+    # -- Service port.
+    port: 80
+    # -- Service annotations.
+    annotations: {} # @schema additionalProperties: {type: string}
+  # -- Deployment update strategy.
+  updateStrategy: {} # @schema additionalProperties: true
+  # -- Seconds to wait on shutdown. Realtime drains for up to 15s before closing sockets.
+  terminationGracePeriodSeconds: 30
+  # -- Seconds to sleep before shutdown so endpoints are removed first.
+  preStopSleepSeconds: 5
+  startupProbe:
+    # -- Enable the startup probe.
+    enabled: true
+    # -- Seconds between probes.
+    periodSeconds: 5
+    # -- Seconds before a probe times out.
+    timeoutSeconds: 5
+    # -- Consecutive failures before the probe counts as failed.
+    failureThreshold: 60
+  readinessProbe:
+    # -- Enable the readiness probe.
+    enabled: true
+    # -- Seconds between probes.
+    periodSeconds: 10
+    # -- Seconds before a probe times out.
+    timeoutSeconds: 5
+    # -- Consecutive failures before the probe counts as failed.
+    failureThreshold: 3
+    # -- Consecutive successes before the probe counts as passed again.
+    successThreshold: 1
+  livenessProbe:
+    # -- Enable the liveness probe.
+    enabled: true
+    # -- Seconds between probes.
+    periodSeconds: 20
+    # -- Seconds before a probe times out.
+    timeoutSeconds: 5
+    # -- Consecutive failures before the probe counts as failed.
+    failureThreshold: 3
+  # -- Pod security context, merged key by key over `podSecurityContext`.
+  podSecurityContext: {} # @schema additionalProperties: true
+  # -- Container security context, merged key by key over `containerSecurityContext`.
+  containerSecurityContext: {} # @schema additionalProperties: true
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Topology spread constraints. Empty inherits `defaults.topologySpreadConstraints`.
+  topologySpreadConstraints: [] # @schema item: object
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Extra environment variables for this component.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes for this component.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for the main container.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# Queue workers (`app/worker.php`). How to choose a topology:
+# docs/architecture.md#worker-topologies.
+workers:
+  # -- How queues are spread over Deployments. `combined` runs one Deployment
+  # that consumes every queue. `separate` runs one Deployment per queue
+  # (configured under `queues`). `grouped` runs one Deployment per entry in
+  # `groups`, each consuming a list of queues.
+  mode: combined # @schema enum: [combined, separate, grouped]
+  combined:
+    # -- Replicas. Capped at 1, because the `databases` queue must have a
+    # single consumer; use `separate` or `grouped` to scale other queues.
+    replicaCount: 1 # @schema minimum: 0; maximum: 1
+    # -- Worker processes per pod (`_APP_WORKERS_NUM`). Must be 1: each
+    # process would consume the `databases` queue.
+    processes: 1 # @schema minimum: 1; maximum: 1
+    # -- Coroutine budget used to size connection pools (`_APP_WORKER_MAX_COROUTINES`).
+    # The default is the sum of every queue's concurrency in Appwrite's own
+    # combined worker.
+    maxCoroutines: 78 # @schema minimum: 1
+    # -- CPUs Appwrite sizes its connection pools for (`_APP_CPU_NUM`). Derived from resources when empty.
+    cpuNum: "" # @schema type: [string, integer]
+    # -- Resource requests and limits.
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 2Gi
+  # Per-queue Deployments, used when `mode` is `separate`. Scheduling,
+  # security and extra settings come from the `workers` keys below.
+  queues:
+    statsUsage:
+      # -- Consume the `stats-usage` queue. Usage statistics written to ClickHouse after every request.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 8 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    statsResources:
+      # -- Consume the `stats-resources` queue. Periodic resource counts per project.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 1 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    webhooks:
+      # -- Consume the `webhooks` queue. Webhook deliveries.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 8 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    deletes:
+      # -- Consume the `deletes` queue. Deletes and cleanup.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 8 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    databases:
+      # -- Consume the `databases` queue. Database, collection, attribute and index changes. Must have a single consumer: `replicaCount` is capped at 1.
+      enabled: true
+      # -- Replicas. Capped at 1.
+      replicaCount: 1 # @schema minimum: 0; maximum: 1
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 1 # @schema minimum: 1; maximum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+    builds:
+      # -- Consume the `builds` queue. Function and site builds (needs the orchestrator, see `compute`).
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 8 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    jobs:
+      # -- Consume the `jobs` queue. Build job events from the orchestrator.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 8 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    screenshots:
+      # -- Consume the `screenshots` queue. Site screenshots (needs the browser service).
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 8 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    certificates:
+      # -- Consume the `certificates` queue. Let's Encrypt certificates and custom domain verification.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 8 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    executions:
+      # -- Consume the `executions` queue. Execution logs.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 8 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    functions:
+      # -- Consume the `functions` queue. Function executions (needs the executor, see `compute`).
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 8 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    mails:
+      # -- Consume the `mails` queue. Emails.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 1 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    notifications:
+      # -- Consume the `notifications` queue. Push notifications.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 1 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    messaging:
+      # -- Consume the `messaging` queue. Messaging (email, SMS, push providers).
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 1 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+    migrations:
+      # -- Consume the `migrations` queue. Imports from other Appwrite instances and providers.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).
+      maxCoroutines: 1 # @schema minimum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
+      autoscaling:
+        # -- Create a HorizontalPodAutoscaler.
+        enabled: false
+        # -- Minimum replicas.
+        minReplicas: 1
+        # -- Maximum replicas.
+        maxReplicas: 5
+        # -- Target average CPU utilisation, in percent.
+        targetCPUUtilizationPercentage: 75
+  # -- Deployments used when `mode` is `grouped`: a map of group name to
+  # `queues` (list of queue names, e.g. `stats-usage`) plus optional
+  # `replicaCount`, `processes`, `maxCoroutines`, `cpuNum`, `resources` and
+  # `autoscaling`. `maxCoroutines` defaults to the sum of the queues'
+  # concurrency and sizes connection pools; in a single-queue group it also
+  # sets that queue's concurrency. Every queue must be in exactly one group,
+  # and the group with `databases` must stay at one replica and one process.
+  groups: {} # @schema additionalProperties: {type: object}
+  # -- Resource requests and limits for `separate` and `grouped` Deployments that don't set their own.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      memory: 1Gi
+  # -- Seconds to let workers finish in-flight jobs on shutdown. The queue drains for up to 30s.
+  terminationGracePeriodSeconds: 45
+  # -- Pod security context, merged key by key over `podSecurityContext`.
+  podSecurityContext: {} # @schema additionalProperties: true
+  # -- Container security context, merged key by key over `containerSecurityContext`.
+  containerSecurityContext: {} # @schema additionalProperties: true
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Topology spread constraints. Empty inherits `defaults.topologySpreadConstraints`.
+  topologySpreadConstraints: [] # @schema item: object
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Extra environment variables for every worker.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes for every worker.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for every worker.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# Scheduled tasks. Each runs as a single replica: Appwrite has no leader
+# election, so running two copies would schedule work twice.
+tasks:
+  scheduler:
+    # -- Run the scheduler for function, execution and message schedules.
+    enabled: true
+    # -- `combined` runs one scheduler pod. `separate` runs the functions,
+    # executions and messages schedulers and the resource-usage task as
+    # separate pods, each with these resources.
+    mode: combined # @schema enum: [combined, separate]
+    # -- Resource requests and limits.
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+  maintenance:
+    # -- Run the maintenance task (cleanup, certificate renewal).
+    enabled: true
+    # -- Resource requests and limits.
+    resources:
+      requests:
+        cpu: 20m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+  interval:
+    # -- Run the interval task, which verifies custom domains and queues their certificates.
+    enabled: true
+    # -- Resource requests and limits.
+    resources:
+      requests:
+        cpu: 20m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+  # -- Seconds to wait on shutdown.
+  terminationGracePeriodSeconds: 30
+  # -- Pod security context, merged key by key over `podSecurityContext`.
+  podSecurityContext: {} # @schema additionalProperties: true
+  # -- Container security context, merged key by key over `containerSecurityContext`.
+  containerSecurityContext: {} # @schema additionalProperties: true
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Extra environment variables for every task.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes for every task.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for every task.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# IP geolocation service used for sessions and audit logs.
+geo:
+  # -- Deploy the geo service. When disabled, Appwrite skips geolocation.
+  enabled: true
+  image:
+    # -- Image registry.
+    registry: docker.io
+    # -- Image repository.
+    repository: appwrite/geo
+    # -- Image tag.
+    tag: 0.3.1
+    # -- Image digest.
+    digest: ""
+    # -- Image pull policy.
+    pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+  # -- Number of replicas.
+  replicaCount: 1 # @schema minimum: 0
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  # -- Pod security context. The geo server listens on port 80, so the
+  # unprivileged port range is lowered for the pod instead of running as root.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 82
+    runAsGroup: 82
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+      - name: net.ipv4.ip_unprivileged_port_start
+        value: "0"
+  # -- Container security context.
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: [ALL]
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Seconds to wait on shutdown.
+  terminationGracePeriodSeconds: 30
+  # -- Extra environment variables, as a list of EnvVar objects.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for the main container.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# Headless Chromium that renders site screenshots and the avatars
+# screenshot API. With NetworkPolicies enabled, it may only reach the
+# Appwrite API and public addresses. See docs/optional-components.md#browser.
+browser:
+  # -- Deploy the browser service.
+  enabled: false
+  image:
+    # -- Image registry.
+    registry: docker.io
+    # -- Image repository.
+    repository: appwrite/browser
+    # -- Image tag.
+    tag: 0.3.4
+    # -- Image digest.
+    digest: ""
+    # -- Image pull policy.
+    pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+  # -- Number of replicas.
+  replicaCount: 1 # @schema minimum: 0
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+  # -- Pod security context.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  # -- Container security context.
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: [ALL]
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Seconds to wait on shutdown.
+  terminationGracePeriodSeconds: 30
+  # -- Extra environment variables, as a list of EnvVar objects.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for the main container.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# AI assistant in the console, backed by OpenAI. Appwrite reaches it at the
+# fixed address `appwrite-assistant:3003`, so its Service is named
+# `appwrite-assistant` and only one release per namespace can enable it.
+# See docs/optional-components.md#assistant.
+assistant:
+  # -- Deploy the assistant.
+  enabled: false
+  image:
+    # -- Image registry.
+    registry: docker.io
+    # -- Image repository.
+    repository: appwrite/assistant
+    # -- Image tag.
+    tag: 0.8.4
+    # -- Image digest.
+    digest: ""
+    # -- Image pull policy.
+    pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+  apiKey:
+    # -- OpenAI API key (`_APP_ASSISTANT_OPENAI_API_KEY`), set inline. Stored in the chart's Secret.
+    value: ""
+    # -- Existing Secret holding the OpenAI API key. Takes precedence over `value`.
+    secretName: ""
+    # -- Key in the Secret.
+    secretKey: openai-api-key
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  # -- Pod security context.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  # -- Container security context.
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: [ALL]
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Seconds to wait on shutdown.
+  terminationGracePeriodSeconds: 30
+  # -- Extra environment variables, as a list of EnvVar objects.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for the main container.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# Image analysis that picks the focal point of images for smart cropping
+# (`_APP_AUTOGRAVITY_HOST`). See docs/optional-components.md#autogravity.
+autogravity:
+  # -- Deploy autogravity.
+  enabled: false
+  image:
+    # -- Image registry.
+    registry: ghcr.io
+    # -- Image repository.
+    repository: appwrite/autogravity
+    # -- Image tag.
+    tag: 0.0.11
+    # -- Image digest.
+    digest: ""
+    # -- Image pull policy.
+    pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+  # -- Model backend (`MODEL_BACKEND`).
+  modelBackend: focalnet
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+  # -- Pod security context.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  # -- Container security context.
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: [ALL]
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Seconds to wait on shutdown.
+  terminationGracePeriodSeconds: 30
+  # -- Extra environment variables, as a list of EnvVar objects.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for the main container.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# Text embedding service behind Appwrite's embeddings API (`/v1/embeddings`).
+# See docs/optional-components.md#embedding.
+embedding:
+  # -- Deploy the embedding service (`_APP_EMBEDDING`). When disabled, the
+  # embeddings API returns a service-disabled error.
+  enabled: false
+  image:
+    # -- Image registry.
+    registry: docker.io
+    # -- Image repository.
+    repository: appwrite/embedding
+    # -- Image tag.
+    tag: 0.3.1
+    # -- Image digest.
+    digest: ""
+    # -- Image pull policy.
+    pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+  # -- Models to load (`EMBEDDING_MODELS`).
+  models: [nomic-embed-text] # @schema item: string
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      memory: 4Gi
+  persistence:
+    # -- Keep downloaded models in a PersistentVolumeClaim.
+    enabled: true
+    # -- Storage class. Empty uses `global.storageClass`, then the cluster
+    # default; `-` requests no class.
+    storageClass: ""
+    # -- Volume size.
+    size: 5Gi
+  # -- Pod security context.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  # -- Container security context.
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: [ALL]
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Seconds to wait on shutdown.
+  terminationGracePeriodSeconds: 30
+  # -- Extra environment variables, as a list of EnvVar objects.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for the main container.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# MQTT broker (`php app/mqtt.php`) that delivers push notifications sent
+# through Messaging's built-in Appwrite push provider: plain MQTT on 1883 and
+# MQTT over WebSocket on 8083. Expose it with a LoadBalancer Service and
+# terminate TLS there, or in front of it. See docs/optional-components.md#mqtt.
+mqtt:
+  # -- Deploy the MQTT broker.
+  enabled: false
+  # -- Number of replicas.
+  replicaCount: 1 # @schema minimum: 0
+  # -- CPUs Appwrite sizes its connection pools for (`_APP_CPU_NUM`). Derived from resources when empty.
+  cpuNum: "" # @schema type: [string, integer]
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  service:
+    # -- Service type. Use LoadBalancer to reach MQTT from outside the cluster.
+    type: ClusterIP
+    # -- MQTT port.
+    port: 1883
+    # -- MQTT over WebSocket port.
+    wsPort: 8083
+    # -- Service annotations, e.g. for a cloud load balancer with TLS.
+    annotations: {} # @schema additionalProperties: {type: string}
+    # -- Source ranges allowed through a LoadBalancer.
+    loadBalancerSourceRanges: [] # @schema item: string
+  # -- Pod security context, merged key by key over `podSecurityContext`.
+  podSecurityContext: {} # @schema additionalProperties: true
+  # -- Container security context, merged key by key over `containerSecurityContext`.
+  containerSecurityContext: {} # @schema additionalProperties: true
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Seconds to wait on shutdown.
+  terminationGracePeriodSeconds: 30
+  # -- Extra environment variables, as a list of EnvVar objects.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for the main container.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# Prometheus objects for the datastores' metrics (`<service>.builtin.metrics`).
+# Appwrite itself exposes no metrics. See docs/production.md#monitoring.
+metrics:
+  serviceMonitor:
+    # -- Create a ServiceMonitor (monitoring.coreos.com/v1) for each built-in
+    # datastore with `metrics.enabled`. Needs the Prometheus Operator CRDs.
+    enabled: false
+    # -- Extra labels, e.g. the selector of your Prometheus.
+    labels: {} # @schema additionalProperties: {type: string}
+    # -- Scrape interval. Empty uses Prometheus' default.
+    interval: ""
+    # -- Scrape timeout. Empty uses Prometheus' default.
+    scrapeTimeout: ""
+  prometheusRule:
+    # -- Create a PrometheusRule with `groups`. Needs the Prometheus Operator CRDs.
+    enabled: false
+    # -- Extra labels, e.g. the selector of your Prometheus.
+    labels: {} # @schema additionalProperties: {type: string}
+    # -- Rule groups (PrometheusRule `spec.groups`).
+    groups: [] # @schema item: object
+
+# Ingress resources for the routes Appwrite's Docker install serves through
+# Traefik. See docs/networking.md for TLS, wildcard previews and custom domains.
+ingress:
+  # -- Create Ingress resources.
+  enabled: false
+  # -- IngressClass to use. Empty uses the cluster default.
+  className: ""
+  # -- Annotations for every Ingress, e.g. a cert-manager issuer.
+  annotations: {} # @schema additionalProperties: {type: string}
+  # -- Labels for every Ingress.
+  labels: {} # @schema additionalProperties: {type: string}
+  tls:
+    # -- Terminate TLS for `appwrite.domain` and `appwrite.consoleDomain`.
+    enabled: false
+    # -- Secret with the certificate. Defaults to `<fullname>-tls`.
+    secretName: ""
+  wildcard:
+    # -- Route `*.<functionsDomain>` and `*.<sitesDomain>` (function and site preview URLs) to the API.
+    enabled: true
+    # -- Annotations for the wildcard Ingress, merged over `ingress.annotations`.
+    annotations: {} # @schema additionalProperties: {type: string}
+    tls:
+      # -- Terminate TLS for the wildcard hosts. Needs a wildcard certificate, which ACME issues through DNS-01.
+      enabled: false
+      # -- Secret with the wildcard certificate. Defaults to `<fullname>-wildcard-tls`.
+      secretName: ""
+  customDomains:
+    # -- Route every other hostname to the API, for custom domains of
+    # projects, functions and sites. Creates an Ingress rule without a host.
+    enabled: false
+    # -- Annotations for the custom-domain Ingress, merged over `ingress.annotations`.
+    annotations: {} # @schema additionalProperties: {type: string}
+  # -- `pathType` of every Ingress path. Some controllers (GCE) need
+  # `ImplementationSpecific` for prefix matching.
+  pathType: Prefix # @schema enum: [Prefix, ImplementationSpecific, Exact]
+  # -- Extra `spec.tls` entries for the main Ingress, e.g. a certificate that
+  # covers more hosts.
+  extraTls: [] # @schema item: object
+
+# Gateway API HTTPRoutes for the same routes as `ingress`. See
+# docs/networking.md#gateway-api.
+httpRoute:
+  # -- Create HTTPRoutes (gateway.networking.k8s.io/v1).
+  enabled: false
+  # -- Gateways (and listeners) to attach to. Required when enabled.
+  parentRefs: [] # @schema item: object
+  # -- Annotations for every HTTPRoute.
+  annotations: {} # @schema additionalProperties: {type: string}
+  # -- Labels for every HTTPRoute.
+  labels: {} # @schema additionalProperties: {type: string}
+  # -- Send requests that carry an `x-appwrite-hostname` header to the API
+  # instead of the console, as Appwrite's Traefik setup does. Uses a
+  # RegularExpression header match, which not every Gateway implements.
+  hostnameHeaderMatch: false
+  # -- Timeouts (HTTPRouteTimeouts: `request`, `backendRequest`) for every
+  # rule. Synchronous function executions can take up to 60s on function and
+  # site domains, longer than some Gateways allow by default.
+  timeouts: {} # @schema additionalProperties: {type: string}
+  wildcard:
+    # -- Route `*.<functionsDomain>` and `*.<sitesDomain>` to the API.
+    enabled: true
+    # -- Gateways to attach the wildcard route to. Defaults to `httpRoute.parentRefs`.
+    parentRefs: [] # @schema item: object
+  customDomains:
+    # -- Route every hostname the Gateway listener accepts to the API, for custom domains.
+    enabled: false
+    # -- Gateways (typically a dedicated catch-all listener) to attach the route to. Defaults to `httpRoute.parentRefs`.
+    parentRefs: [] # @schema item: object
+
+# NetworkPolicies for the release namespace. The executor and build
+# namespaces have their own, on by default (`compute.executor.networkPolicy`,
+# `compute.builds.networkPolicy`). See docs/security.md#network-policies.
+networkPolicy:
+  # -- Create NetworkPolicies in the release namespace. The built-in
+  # datastores then accept only Appwrite pods of this release, the internal
+  # services (geo, browser, assistant, autogravity, embedding) only pods of
+  # this release, and workers and tasks no incoming traffic. Off by default:
+  # any pod in the cluster can reach the built-in PostgreSQL, Redis and
+  # ClickHouse, which only their passwords protect. Policies only take effect
+  # with a CNI that enforces them.
+  enabled: false
+  ingress:
+    # -- Sources (NetworkPolicyPeer) allowed to reach the API, console,
+    # realtime and MQTT, typically your ingress controller or Gateway. Empty
+    # allows any source. Pods of this release can always reach the API,
+    # console and realtime.
+    from: [] # @schema item: object
+  metrics:
+    # -- Sources (NetworkPolicyPeer), typically Prometheus, allowed to scrape
+    # the datastores' metrics ports (`<service>.builtin.metrics.enabled`). Empty
+    # allows none.
+    from: [] # @schema item: object
+  egress:
+    # -- Restrict egress to DNS, pods of this release and `extraRules` (needs
+    # `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and
+    # the DNS server it verifies custom domains against (`_APP_DNS`, 8.8.8.8).
+    # With compute, the orchestrator also needs the Kubernetes API. Allow what
+    # you use in `extraRules`; the executor is allowed already.
+    enabled: false
+    # -- DNS servers (NetworkPolicyPeer) allowed on port 53 wherever egress is
+    # restricted: here, for the browser, and for the executor and build Jobs,
+    # whose policies are on by default with compute. For NodeLocal DNSCache,
+    # add `{ipBlock: {cidr: 169.254.20.10/32}}`. DNS on another port
+    # (OpenShift: 5353) needs rules in `extraRules`,
+    # `compute.executor.networkPolicy.extraEgress` and
+    # `compute.builds.networkPolicy.extraEgress`.
+    dns:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+    # -- Extra egress rules (NetworkPolicyEgressRule) when egress is restricted.
+    extraRules: [] # @schema item: object
+
+# Appwrite's data migration (`php app/cli.php migrate`), which must run after
+# Appwrite is upgraded to a new version. Fresh installs don't need it. See
+# docs/upgrading.md, and docs/gitops.md#migrations for Argo CD and Flux.
+migrations:
+  # -- How to run it. `hook`: a Helm post-upgrade hook, when the Appwrite
+  # version changes or the previous hook failed. `job`: a regular Job named
+  # after the version and a hash of its spec, for tools that don't run Helm
+  # hooks (Argo CD). `none`: run it yourself.
+  mode: hook # @schema enum: [hook, job, none]
+  # -- Allow upgrading to an older Appwrite version than the one installed.
+  # Appwrite can't migrate data backwards; restore a backup instead.
+  allowDowngrade: false
+  # -- Seconds the migration may run before it's stopped.
+  activeDeadlineSeconds: 7200 # @schema minimum: 60
+  # -- Retries after a failure.
+  backoffLimit: 1 # @schema minimum: 0
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+
+tests:
+  # -- Render the `helm test` pods, which check that the API, console and
+  # realtime respond.
+  enabled: true

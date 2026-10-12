@@ -1,0 +1,7 @@
+{{- if (eq .Values.clickhouse.mode "builtin") }}
+{{- $ports := list (dict "name" "http" "port" 8123 "targetPort" "http" "appProtocol" "http") (dict "name" "native" "port" 9000 "targetPort" "native") }}
+{{- if .Values.clickhouse.builtin.metrics.enabled }}
+{{- $ports = append $ports (dict "name" "metrics" "port" 9363 "targetPort" "metrics" "appProtocol" "http") }}
+{{- end }}
+{{- include "appwrite.service" (dict "root" . "component" "clickhouse" "service" (dict) "ports" $ports) }}
+{{- end }}

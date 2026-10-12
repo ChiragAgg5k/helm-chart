@@ -1,0 +1,37 @@
+{{- $sm := .Values.metrics.serviceMonitor }}
+{{- if $sm.enabled }}
+{{- range $pair := list (list "postgresql" "database") (list "redis" "redis") (list "clickhouse" "clickhouse") }}
+{{- $component := index $pair 0 }}
+{{- $s := index $.Values (index $pair 1) }}
+{{- if and (eq $s.mode "builtin") $s.builtin.metrics.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "appwrite.componentName" (dict "root" $ "component" $component) }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "appwrite.componentLabels" (dict "root" $ "component" $component) | nindent 4 }}
+    {{- with $sm.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with include "appwrite.annotations" (dict "root" $) | trim }}{{ . | nindent 2 }}{{ end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "appwrite.componentSelectorLabels" (dict "root" $ "component" $component) | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ $.Release.Namespace }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      {{- with $sm.interval }}
+      interval: {{ . }}
+      {{- end }}
+      {{- with $sm.scrapeTimeout }}
+      scrapeTimeout: {{ . }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
