@@ -204,13 +204,13 @@
       "extractVersionTemplate": "^v(?<version>.*)$"
     },
     {
-      "description": "Trivy image (tag and digest) in the security scan workflow",
+      "description": "Images run with docker run in the workflows (tag and digest): Trivy and Artifact Hub's ah",
       "customType": "regex",
       "managerFilePatterns": [
         "/^\\.github/workflows/.+\\.ya?ml$/"
       ],
       "matchStrings": [
-        "TRIVY_IMAGE:\\s*(?<depName>[^:\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+        "(?:TRIVY|AH)_IMAGE:\\s*(?<depName>[^:\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
       "datasourceTemplate": "docker"
     }

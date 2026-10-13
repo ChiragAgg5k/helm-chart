@@ -19,7 +19,7 @@ env:
 jobs:
   prepare:
     name: Images and visibility
-    runs-on: ubuntu-latest
+    runs-on: ${{ format('gcrunner={0}-prepare-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index) }}
     outputs:
       images: ${{ steps.images.outputs.images }}
       public: ${{ steps.repo.outputs.public }}
@@ -49,7 +49,7 @@ jobs:
   images:
     name: Image ${{ matrix.image.name }}
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on: ${{ format('gcrunner={0}-images-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index) }}
     permissions:
       contents: read
       security-events: write
@@ -86,7 +86,7 @@ jobs:
   config:
     name: Rendered manifests
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on: ${{ format('gcrunner={0}-config-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index) }}
     permissions:
       contents: read
       security-events: write

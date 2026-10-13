@@ -30,7 +30,11 @@ concurrency:
 jobs:
   install:
     name: ${{ matrix.scenario }} (k8s ${{ matrix.kubernetes }})${{ matrix.upgrade-from && format(' upgrade from {0}', matrix.upgrade-from) || '' }}
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-install-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -168,7 +172,11 @@ jobs:
     name: Install result
     needs: install
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-result-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     permissions: {}
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1

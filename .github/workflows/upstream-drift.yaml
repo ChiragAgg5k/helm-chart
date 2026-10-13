@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ${{ format('gcrunner={0}-check-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index) }}
     permissions:
       contents: read
       issues: write   # open the drift issue
