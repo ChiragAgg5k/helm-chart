@@ -108,9 +108,14 @@ The scenarios CI installs are the `charts/appwrite/ci/*-values.yaml` files.
 Jobs run on Appwrite's [gcrunner](https://github.com/appwrite-labs/gcrunner)
 runners: an ephemeral Compute Engine VM per job, picked with
 `runs-on: gcrunner=<run id>-<job>-<index>/machine=<type>` (c3d-standard-8
-for the nightly, c3d-standard-4 otherwise). Pull requests from forks run on
-GitHub-hosted runners instead, so code from outside the repository never runs
-on Appwrite's infrastructure. Release and Scorecard stay on GitHub-hosted
+for the nightly, c3d-standard-4 otherwise). Pull requests from forks ask for
+GitHub-hosted runners instead. That isn't a security boundary: a pull request
+runs its own copy of the workflow, so a fork can ask for gcrunner, and
+gcrunner doesn't check where a job comes from. While the repository is
+public, the guard is that a maintainer approves every workflow run from a
+fork pull request (Settings → Actions → General → "Require approval for all
+external contributors") after reading its workflow changes; never approve a
+fork's run that changes `runs-on`. Release and Scorecard stay on GitHub-hosted
 runners: Scorecard only publishes results from them, and the release's
 signature and provenance attestation name the runner that built the chart.
 
