@@ -23,7 +23,11 @@ env:
 jobs:
   lint:
     name: Lint (Helm ${{ matrix.helm }})
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-lint-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -58,7 +62,11 @@ jobs:
 
   unittest:
     name: Unit tests (Helm ${{ matrix.helm }})
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-unittest-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -96,7 +104,11 @@ jobs:
 
   kubeconform:
     name: kubeconform
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-kubeconform-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
@@ -118,7 +130,11 @@ jobs:
 
   generated:
     name: Generated files are up to date
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-generated-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
@@ -139,7 +155,11 @@ jobs:
 
   metadata:
     name: Chart metadata
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-metadata-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
@@ -152,7 +172,11 @@ jobs:
 
   artifacthub:
     name: Artifact Hub lint
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-artifacthub-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     container:
       image: docker.io/artifacthub/ah:v1.23.0@sha256:e5d2a2cdef85aac4928e8176ffaad24746c5fe961d64ff6856f7222957095356
       options: --user 1001
@@ -169,7 +193,11 @@ jobs:
 
   changelog:
     name: Changelog
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-changelog-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:

@@ -31,7 +31,11 @@ env:
 jobs:
   actionlint:
     name: actionlint and shellcheck
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-actionlint-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
@@ -60,7 +64,11 @@ jobs:
 
   zizmor:
     name: zizmor
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-zizmor-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:

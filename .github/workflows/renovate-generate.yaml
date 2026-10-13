@@ -32,7 +32,11 @@ jobs:
     # The pull request's author, which a later pusher can't change. Forks
     # never get here: Renovate pushes branches to this repository.
     if: github.event.pull_request.user.login == 'renovate[bot]' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: >-
+      ${{ (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
+      && format('gcrunner={0}-generate-{1}/machine=c3d-standard-4', github.run_id, strategy.job-index)
+      || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:

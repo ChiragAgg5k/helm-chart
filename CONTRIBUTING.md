@@ -105,6 +105,15 @@ The scenarios CI installs are the `charts/appwrite/ci/*-values.yaml` files.
 | [Upstream drift](.github/workflows/upstream-drift.yaml) | weekly | opens an issue when Appwrite releases a version the chart doesn't ship |
 | [Release](.github/workflows/release.yaml) | `Chart.yaml` changes on `main` | see [RELEASING.md](RELEASING.md) |
 
+Jobs run on Appwrite's [gcrunner](https://github.com/appwrite-labs/gcrunner)
+runners: an ephemeral Compute Engine VM per job, picked with
+`runs-on: gcrunner=<run id>-<job>-<index>/machine=<type>` (c3d-standard-8
+for the nightly, c3d-standard-4 otherwise). Pull requests from forks run on
+GitHub-hosted runners instead, so code from outside the repository never runs
+on Appwrite's infrastructure. Release and Scorecard stay on GitHub-hosted
+runners: Scorecard only publishes results from them, and the release's
+signature and provenance attestation name the runner that built the chart.
+
 Workflows pin every action to a commit SHA (with the version in a comment)
 and every tool to a version in `env:`, which Renovate updates through the
 custom managers in `renovate.json`. A new pinned tool needs a manager there.
