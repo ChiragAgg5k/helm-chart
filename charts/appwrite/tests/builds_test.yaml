@@ -49,6 +49,11 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: ghcr.io/open-runtimes/orchestrator/jobs-service:2.2.3
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: JOB_SIDECAR_IMAGE
+            value: ghcr.io/open-runtimes/orchestrator/job-sidecar:2.2.3
       - equal:
           path: spec.strategy.type
           value: Recreate
