@@ -8,7 +8,7 @@ the chart upgrades Appwrite. You can pin a different Appwrite version with
 
 | Chart | Appwrite |
 | --- | --- |
-| 0.1.0 | 2.3.0 |
+| 1.0.0 | 2.3.0 |
 
 The [changelog](../CHANGELOG.md) lists what changed in each chart version,
 and [version notes](#version-notes) what you have to do about it.
@@ -182,6 +182,6 @@ and after. A release without an entry needs nothing beyond `helm upgrade`.
 When you skip versions, apply the entries of every version in between,
 oldest first.
 
-### To 0.1.0
+### To 1.0.0
 
 The first release. Nothing to do.

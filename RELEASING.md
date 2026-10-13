@@ -84,24 +84,19 @@ people may have pulled it already.
 
 ## Pre-releases
 
-Every 0.x version is a pre-release: the workflow marks its GitHub release as
-one (as it does for versions with a `-suffix`), and `Chart.yaml` carries
-`artifacthub.io/prerelease: "true"`. At 1.0.0, set that annotation to
-`"false"` in the same PR that bumps the version. For a later pre-release such
-as `1.1.0-rc.1`, set it back to `"true"` for that version only.
+The workflow marks a version with a `-suffix`, such as `1.1.0-rc.1`, as a
+pre-release on GitHub. Set `artifacthub.io/prerelease: "true"` in `Chart.yaml`
+for that version only, and back to `"false"` in the next release.
 
-## Before the first release (0.1.0)
+## Before the first release (1.0.0)
 
-`Chart.yaml` already says `0.1.0`, so the first release only needs the
-changelog and the repository settings:
+The release pull request sets `Chart.yaml` to `1.0.0` and has the changelog
+section, so the first release only needs the repository settings:
 
-- [ ] Rename `## [Unreleased]` in `CHANGELOG.md` to `## [0.1.0] - <date>`
-      (add a new empty `## [Unreleased]` above it), and run `make changes`.
-      Do this before running the workflow below: it refuses to publish a
-      version without changelog entries.
-- [ ] Make the repository public, then run the release workflow manually
-      (Actions → Release → Run workflow, on `main`); it skips itself while
-      the repository is private. Build provenance attestations on private
+- [ ] Make the repository public before merging the release pull request:
+      the release workflow skips itself while the repository is private. If
+      the pull request was merged first, run it manually (Actions → Release
+      → Run workflow, on `main`). Build provenance attestations on private
       repositories need GitHub Enterprise Cloud, and keyless signatures record
       the repository in the public Rekor transparency log anyway.
 - [ ] After the first push, make the `charts/appwrite` package public in the

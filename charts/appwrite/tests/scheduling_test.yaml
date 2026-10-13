@@ -37,6 +37,8 @@ tests:
 
   - it: leaves chart and version labels off pod templates
     template: templates/api/deployment.yaml
+    chart:
+      version: 9.9.9
     asserts:
       - notExists:
           path: spec.template.metadata.labels["helm.sh/chart"]
@@ -44,7 +46,7 @@ tests:
           path: spec.template.metadata.labels["app.kubernetes.io/version"]
       - equal:
           path: metadata.labels["helm.sh/chart"]
-          value: appwrite-0.1.0
+          value: appwrite-9.9.9
 
   - it: skips the API PodDisruptionBudget while a ReadWriteOnce volume pins it to one node
     template: templates/api/pdb.yaml
