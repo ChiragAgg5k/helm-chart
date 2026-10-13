@@ -379,7 +379,7 @@ Built-in or your own.
 | redis.builtin.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | redis.builtin.image.registry | string | `"docker.io"` | Image registry. |
 | redis.builtin.image.repository | string | `"library/redis"` | Image repository. `valkey/valkey` works as a drop-in replacement, with a Valkey tag (e.g. `8-alpine`). |
-| redis.builtin.image.tag | string | `"7.4.7-alpine"` | Image tag. |
+| redis.builtin.image.tag | string | `"7.4.11-alpine"` | Image tag. |
 | redis.builtin.maxmemory | string | `"512mb"` | `maxmemory`. Keep it below the memory limit. |
 | redis.builtin.maxmemoryPolicy | string | `"allkeys-lru"` | `maxmemory-policy`. Appwrite's Docker install uses `allkeys-lru`. |
 | redis.builtin.metrics.enabled | bool | `false` | Run a redis_exporter sidecar and expose it on port 9121 of the Service. See docs/production.md#monitoring. |
@@ -428,7 +428,7 @@ Built-in or your own.
 | clickhouse.builtin.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | clickhouse.builtin.image.registry | string | `"docker.io"` | Image registry. |
 | clickhouse.builtin.image.repository | string | `"clickhouse/clickhouse-server"` | Image repository. |
-| clickhouse.builtin.image.tag | string | `"26.4.3-alpine"` | Image tag. |
+| clickhouse.builtin.image.tag | string | `"26.4.5-alpine"` | Image tag. |
 | clickhouse.builtin.metrics.enabled | bool | `false` | Serve ClickHouse's built-in Prometheus endpoint on port 9363 of the Service (`/metrics`). No sidecar. See docs/production.md#monitoring. |
 | clickhouse.builtin.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
 | clickhouse.builtin.persistence.accessModes | list | `["ReadWriteOnce"]` | Access modes. |
@@ -848,7 +848,7 @@ The build orchestrator and the executor.
 | compute.builds.sidecarImage.digest | string | `""` | Image digest. |
 | compute.builds.sidecarImage.registry | string | `"ghcr.io"` | Image registry. |
 | compute.builds.sidecarImage.repository | string | `"open-runtimes/orchestrator/job-sidecar"` | Image repository of the sidecar that moves sources, outputs and caches for each build. |
-| compute.builds.sidecarImage.tag | string | `"2.2.2"` | Image tag. |
+| compute.builds.sidecarImage.tag | string | `"2.2.3"` | Image tag. |
 | compute.builds.tolerations | list | `[]` | Tolerations for build pods. |
 | compute.enabled | bool | `false` | Enable Functions and Sites. Needs `storage.device: s3` and `compute.executor.privileged` (see docs/executor.md). |
 | compute.executor.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
@@ -891,7 +891,7 @@ The build orchestrator and the executor.
 | compute.orchestrator.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | compute.orchestrator.image.registry | string | `"ghcr.io"` | Image registry. |
 | compute.orchestrator.image.repository | string | `"open-runtimes/orchestrator/jobs-service"` | Image repository: the orchestrator's jobs service, with the Kubernetes backend. |
-| compute.orchestrator.image.tag | string | `"2.2.2"` | Image tag. |
+| compute.orchestrator.image.tag | string | `"2.2.3"` | Image tag. |
 | compute.orchestrator.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
 | compute.orchestrator.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
 | compute.orchestrator.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |

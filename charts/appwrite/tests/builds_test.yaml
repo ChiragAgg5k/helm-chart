@@ -48,7 +48,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: ghcr.io/open-runtimes/orchestrator/jobs-service:2.2.2
+          value: ghcr.io/open-runtimes/orchestrator/jobs-service:2.2.3
       - equal:
           path: spec.strategy.type
           value: Recreate
