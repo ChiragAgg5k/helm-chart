@@ -74,8 +74,10 @@ appwrite:
 storage:
   device: s3
   s3:
-    endpoint: https://s3.example.com   # empty for AWS S3
-    region: us-east-1
+    mode: external
+    external:
+      endpoint: https://s3.example.com   # empty for AWS S3
+      region: us-east-1
     bucket: appwrite
     accessKeyId:
       value: <access key>
@@ -498,9 +500,9 @@ compute:
 The same applies to the executor: add the same ranges to
 `compute.executor.networkPolicy.deniedCIDRs`.
 
-The build's sidecar uploads the output straight to S3. When
-`storage.s3.endpoint` is an IP address, the chart allows it; when
-it's a hostname on a private network, add a rule (and the same rule under
+The build's sidecar uploads the output straight to S3. The chart allows the
+built-in object store, and an external `storage.s3.external.endpoint` that
+is an IP address; when it's a hostname on a private network, add a rule (and the same rule under
 `compute.executor.networkPolicy.extraEgress`, which reads build output from
 S3):
 

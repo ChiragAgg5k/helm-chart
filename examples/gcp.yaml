@@ -79,8 +79,10 @@ clickhouse:
 storage:
   device: s3
   s3:
-    endpoint: https://storage.googleapis.com
-    region: auto
+    mode: external
+    external:
+      endpoint: https://storage.googleapis.com
+      region: auto
     bucket: appwrite-example-com
     accessKeyId:
       secretName: appwrite-external   # s3-access-key: the HMAC key's access ID

@@ -74,6 +74,8 @@ annotations:
       image: docker.io/library/redis:7.4.11-alpine
     - name: builtin
       image: docker.io/clickhouse/clickhouse-server:26.4.5-alpine
+    - name: builtin
+      image: docker.io/chrislusf/seaweedfs:4.48
     - name: builtin-exporter
       image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
     - name: builtin-exporter

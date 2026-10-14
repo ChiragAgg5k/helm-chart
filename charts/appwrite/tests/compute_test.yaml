@@ -9,7 +9,8 @@ values:
   - values/required.yaml
 set:
   storage.device: s3
-  storage.s3.endpoint: https://s3.example.com
+  storage.s3.mode: external
+  storage.s3.external.endpoint: https://s3.example.com
   storage.s3.bucket: files
   storage.s3.accessKeyId.secretName: s3
   storage.s3.secretAccessKey.secretName: s3

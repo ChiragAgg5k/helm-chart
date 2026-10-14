@@ -174,6 +174,8 @@ def specific(schema):
 # instead. Keep each for at least one minor release (CONTRIBUTING.md).
 DEPRECATED = (
     "assistant",
+    "storage.s3.endpoint",
+    "storage.s3.region",
 )
 
 

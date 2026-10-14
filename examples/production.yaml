@@ -81,8 +81,10 @@ clickhouse:
 storage:
   device: s3
   s3:
-    endpoint: https://s3.example.com
-    region: us-east-1
+    mode: external
+    external:
+      endpoint: https://s3.example.com
+      region: us-east-1
     bucket: appwrite
     accessKeyId:
       secretName: appwrite-s3

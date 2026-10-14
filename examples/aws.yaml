@@ -69,8 +69,10 @@ clickhouse:
 storage:
   device: s3
   s3:
-    endpoint: ""                      # empty: AWS S3
-    region: eu-west-1
+    mode: external
+    external:
+      endpoint: ""                      # empty: AWS S3
+      region: eu-west-1
     bucket: appwrite-example-com
     accessKeyId:
       secretName: appwrite-external

@@ -99,8 +99,8 @@ configmap-env.yaml so it also runs under `helm template`.
 {{- if not $storage.s3.bucket }}
 {{- $errors = append $errors "storage.s3.bucket is required when storage.device is s3." }}
 {{- end }}
-{{- if not (and (get $hasValue "storage.s3.accessKeyId") (get $hasValue "storage.s3.secretAccessKey")) }}
-{{- $errors = append $errors "storage.s3.accessKeyId and storage.s3.secretAccessKey need a value or a secretName when storage.device is s3." }}
+{{- if and (eq $storage.s3.mode "external") (not (and (get $hasValue "storage.s3.accessKeyId") (get $hasValue "storage.s3.secretAccessKey"))) }}
+{{- $errors = append $errors "storage.s3.accessKeyId and storage.s3.secretAccessKey need a value or a secretName with storage.s3.mode external." }}
 {{- end }}
 {{- end }}
 {{- if $v.compute.enabled }}

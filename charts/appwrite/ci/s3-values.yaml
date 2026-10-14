@@ -8,8 +8,10 @@ appwrite:
 storage:
   device: s3
   s3:
-    endpoint: https://s3.example.com
-    region: eu-central
+    mode: external
+    external:
+      endpoint: https://s3.example.com
+      region: eu-central
     bucket: appwrite
     accessKeyId:
       secretName: appwrite-s3

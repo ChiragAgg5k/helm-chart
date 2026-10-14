@@ -462,13 +462,40 @@ Where files go (the volume or S3), and the `/storage` volume.
 | storage.previewLimit | int | `20000000` | Maximum size in bytes of files Appwrite renders previews for (`_APP_STORAGE_PREVIEW_LIMIT`). |
 | storage.s3.accessKeyId.secretKey | string | `"s3-access-key"` | Key in the Secret. |
 | storage.s3.accessKeyId.secretName | string | `""` | Existing Secret holding the access key id. Takes precedence over `value`. |
-| storage.s3.accessKeyId.value | string | `""` | Access key ID, set inline. Stored in the chart's Secret. |
-| storage.s3.bucket | string | `""` | Bucket (`_APP_STORAGE_S3_BUCKET`). Required with `device: s3`. |
-| storage.s3.endpoint | string | `""` | Endpoint of an S3-compatible store (`_APP_STORAGE_S3_ENDPOINT`), e.g. `https://fsn1.your-objectstorage.com` or `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3. Endpoints and regions per provider: docs/storage.md#s3. |
-| storage.s3.region | string | `"us-east-1"` | Region (`_APP_STORAGE_S3_REGION`). |
+| storage.s3.accessKeyId.value | string | `""` | Access key ID, set inline. Stored in the chart's Secret. With `mode: builtin`, generated once when empty. |
+| storage.s3.bucket | string | `"appwrite"` | Bucket (`_APP_STORAGE_S3_BUCKET`). The built-in store creates it. |
+| storage.s3.builtin.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
+| storage.s3.builtin.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
+| storage.s3.builtin.extraContainers | list | `[]` | Extra sidecar containers. |
+| storage.s3.builtin.extraEnv | list | `[]` | Extra environment variables, as a list of EnvVar objects. |
+| storage.s3.builtin.extraInitContainers | list | `[]` | Extra init containers. |
+| storage.s3.builtin.extraVolumeMounts | list | `[]` | Extra volume mounts for the main container. |
+| storage.s3.builtin.extraVolumes | list | `[]` | Extra volumes. |
+| storage.s3.builtin.image.digest | string | `""` | Image digest. |
+| storage.s3.builtin.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
+| storage.s3.builtin.image.registry | string | `"docker.io"` | Image registry. |
+| storage.s3.builtin.image.repository | string | `"chrislusf/seaweedfs"` | Image repository. |
+| storage.s3.builtin.image.tag | string | `"4.48"` | Image tag. |
+| storage.s3.builtin.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
+| storage.s3.builtin.persistence.accessModes | list | `["ReadWriteOnce"]` | Access modes. |
+| storage.s3.builtin.persistence.annotations | object | `{}` | Annotations for the PersistentVolumeClaim. |
+| storage.s3.builtin.persistence.enabled | bool | `true` | Persist data in a PersistentVolumeClaim. Without it, every restart loses the files and build output. |
+| storage.s3.builtin.persistence.size | string | `"20Gi"` | Volume size: uploaded files, deployment sources and build output. |
+| storage.s3.builtin.persistence.storageClass | string | `""` | Storage class. Empty uses `global.storageClass`, then the cluster default; `-` requests no class. |
+| storage.s3.builtin.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
+| storage.s3.builtin.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
+| storage.s3.builtin.podSecurityContext | object | `{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod security context. The image runs as root by default; the chart runs it as UID 1000. |
+| storage.s3.builtin.priorityClassName | string | `""` | Priority class. Empty inherits `defaults.priorityClassName`. |
+| storage.s3.builtin.resources | object | `{"limits":{"memory":"1Gi"},"requests":{"cpu":"50m","memory":"128Mi"}}` | Resource requests and limits. |
+| storage.s3.builtin.terminationGracePeriodSeconds | int | `60` | Seconds to wait on shutdown. |
+| storage.s3.builtin.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
+| storage.s3.builtin.volumeSizeLimitMB | int | `1024` | Size of each SeaweedFS volume file in MB. The store fills the disk with volumes of this size, so keep it well below `persistence.size`. |
+| storage.s3.external.endpoint | string | `""` | Endpoint (`_APP_STORAGE_S3_ENDPOINT`), e.g. `https://fsn1.your-objectstorage.com` or `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3. Endpoints and regions per provider: docs/storage.md#s3. |
+| storage.s3.external.region | string | `"us-east-1"` | Region (`_APP_STORAGE_S3_REGION`). |
+| storage.s3.mode | string | `"builtin"` | `builtin` runs SeaweedFS, an S3-compatible store, in the release; `external` uses `storage.s3.external`. Only used with `device: s3`. |
 | storage.s3.secretAccessKey.secretKey | string | `"s3-secret-key"` | Key in the Secret. |
 | storage.s3.secretAccessKey.secretName | string | `""` | Existing Secret holding the secret access key. Takes precedence over `value`. |
-| storage.s3.secretAccessKey.value | string | `""` | Secret access key, set inline. Stored in the chart's Secret. |
+| storage.s3.secretAccessKey.value | string | `""` | Secret access key, set inline. Stored in the chart's Secret. With `mode: builtin`, generated once when empty. |
 | storage.volume.accessModes | list | `["ReadWriteOnce"]` | Access modes. Use ReadWriteMany to spread API and worker pods across nodes. They mount `/storage` even with S3 storage, so a ReadWriteOnce volume pins them to one node (and the API gets no PodDisruptionBudget, which would block drains). |
 | storage.volume.annotations | object | `{}` | Annotations for the PersistentVolumeClaim. |
 | storage.volume.colocateReadWriteOnce | bool | `true` | With a ReadWriteOnce volume, schedule every pod that mounts it on the same node so the volume can be attached. |

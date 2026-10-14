@@ -94,3 +94,28 @@ secret:
   {{- . | nindent 2 }}
 {{- end }}
 {{- end }}
+
+{{/*
+S3 settings for `storage.device: s3`, built-in or external, as YAML: builtin,
+endpoint (a URL; empty means AWS S3), region and bucket.
+*/}}
+{{- define "appwrite.s3" -}}
+{{- $s := .Values.storage.s3 }}
+{{- if eq $s.mode "builtin" }}
+builtin: true
+endpoint: {{ printf "http://%s.%s.svc:8333" (include "appwrite.componentName" (dict "root" . "component" "seaweedfs")) .Release.Namespace | quote }}
+region: us-east-1
+{{- else }}
+builtin: false
+endpoint: {{ $s.external.endpoint | quote }}
+region: {{ $s.external.region | quote }}
+{{- end }}
+bucket: {{ $s.bucket | quote }}
+{{- end }}
+
+{{/*
+"true" when the release runs the built-in SeaweedFS, else empty.
+*/}}
+{{- define "appwrite.s3.builtin" -}}
+{{- if and (eq .Values.storage.device "s3") (eq .Values.storage.s3.mode "builtin") }}true{{ end }}
+{{- end }}

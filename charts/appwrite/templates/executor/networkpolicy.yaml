@@ -1,6 +1,7 @@
 {{- if and .Values.compute.enabled .Values.compute.executor.networkPolicy.enabled }}
 {{- $np := .Values.compute.executor.networkPolicy }}
-{{- $s3 := urlParse (.Values.storage.s3.endpoint | default "https://s3.amazonaws.com") }}
+{{- $conn := include "appwrite.s3" . | fromYaml }}
+{{- $s3 := urlParse ($conn.endpoint | default "https://s3.amazonaws.com") }}
 {{- $s3Host := regexReplaceAll ":[0-9]+$" $s3.host "" }}
 {{- $s3Port := regexFind "[0-9]+$" (regexFind ":[0-9]+$" $s3.host) | default (ternary "443" "80" (eq $s3.scheme "https")) }}
 {{- /*
@@ -40,7 +41,17 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
-    {{- if regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" $s3Host }}
+    {{- if $conn.builtin }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            {{- include "appwrite.networkPolicy.selector" (dict "root" . "components" (list "seaweedfs")) | nindent 12 }}
+      ports:
+        - port: 8333
+          protocol: TCP
+    {{- else if regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" $s3Host }}
     - to:
         - ipBlock:
             cidr: {{ $s3Host }}/32

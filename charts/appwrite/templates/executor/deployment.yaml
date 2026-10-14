@@ -4,10 +4,11 @@
 {{- $name := include "appwrite.componentName" (dict "root" . "component" "executor") }}
 {{- $secret := $e.existingSecret | default $name }}
 {{- /* Where the executor finds build output. With an endpoint, Appwrite's paths start with the bucket; on AWS the bucket is in the hostname (docs/executor.md). */}}
-{{- $location := printf "%s.s3.%s.amazonaws.com?region=%s" $s3.bucket $s3.region $s3.region }}
-{{- with $s3.endpoint }}
+{{- $conn := include "appwrite.s3" . | fromYaml }}
+{{- $location := printf "%s.s3.%s.amazonaws.com?region=%s" $conn.bucket $conn.region $conn.region }}
+{{- with $conn.endpoint }}
 {{- $u := urlParse . }}
-{{- $location = printf "%s?region=%s%s" $u.host $s3.region (ternary "&insecure=true" "" (eq $u.scheme "http")) }}
+{{- $location = printf "%s?region=%s%s" $u.host $conn.region (ternary "&insecure=true" "" (eq $u.scheme "http")) }}
 {{- end }}
 {{- $images := include "appwrite.executor.images" . }}
 apiVersion: apps/v1

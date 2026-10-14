@@ -40,8 +40,10 @@ appwrite:
 storage:
   device: s3
   s3:
-    endpoint: http://$(ip aw-s3):8333
-    region: us-east-1
+    mode: external
+    external:
+      endpoint: http://$(ip aw-s3):8333
+      region: us-east-1
     bucket: appwrite
     accessKeyId:
       value: $S3_KEY

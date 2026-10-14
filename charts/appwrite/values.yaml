@@ -657,29 +657,115 @@ storage:
   # -- Maximum size in bytes of files Appwrite renders previews for (`_APP_STORAGE_PREVIEW_LIMIT`).
   previewLimit: 20000000 # @schema minimum: 0
   s3:
-    # -- Endpoint of an S3-compatible store (`_APP_STORAGE_S3_ENDPOINT`), e.g.
-    # `https://fsn1.your-objectstorage.com` or
-    # `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3.
-    # Endpoints and regions per provider: docs/storage.md#s3.
-    endpoint: ""
-    # -- Region (`_APP_STORAGE_S3_REGION`).
-    region: us-east-1
-    # -- Bucket (`_APP_STORAGE_S3_BUCKET`). Required with `device: s3`.
-    bucket: ""
+    # -- `builtin` runs SeaweedFS, an S3-compatible store, in the release;
+    # `external` uses `storage.s3.external`. Only used with `device: s3`.
+    mode: builtin # @schema enum: [builtin, external]
+    # -- Bucket (`_APP_STORAGE_S3_BUCKET`). The built-in store creates it.
+    bucket: appwrite
     accessKeyId:
-      # -- Access key ID, set inline. Stored in the chart's Secret.
+      # -- Access key ID, set inline. Stored in the chart's Secret. With
+      # `mode: builtin`, generated once when empty.
       value: ""
       # -- Existing Secret holding the access key id. Takes precedence over `value`.
       secretName: ""
       # -- Key in the Secret.
       secretKey: s3-access-key
     secretAccessKey:
-      # -- Secret access key, set inline. Stored in the chart's Secret.
+      # -- Secret access key, set inline. Stored in the chart's Secret. With
+      # `mode: builtin`, generated once when empty.
       value: ""
       # -- Existing Secret holding the secret access key. Takes precedence over `value`.
       secretName: ""
       # -- Key in the Secret.
       secretKey: s3-secret-key
+    # Your own S3-compatible store (`mode: external`).
+    external:
+      # -- Endpoint (`_APP_STORAGE_S3_ENDPOINT`), e.g.
+      # `https://fsn1.your-objectstorage.com` or
+      # `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3.
+      # Endpoints and regions per provider: docs/storage.md#s3.
+      endpoint: ""
+      # -- Region (`_APP_STORAGE_S3_REGION`).
+      region: us-east-1
+    # Settings of the built-in SeaweedFS (`mode: builtin`): a single-replica
+    # StatefulSet running master, volume server, filer and S3 gateway in one
+    # process. See docs/storage.md#built-in-object-storage.
+    builtin:
+      image:
+        # -- Image registry.
+        registry: docker.io
+        # -- Image repository.
+        repository: chrislusf/seaweedfs
+        # -- Image tag.
+        tag: "4.48"
+        # -- Image digest.
+        digest: ""
+        # -- Image pull policy.
+        pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+      # -- Size of each SeaweedFS volume file in MB. The store fills the disk
+      # with volumes of this size, so keep it well below `persistence.size`.
+      volumeSizeLimitMB: 1024 # @schema minimum: 1
+      # -- Resource requests and limits.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 1Gi
+      persistence:
+        # -- Persist data in a PersistentVolumeClaim. Without it, every
+        # restart loses the files and build output.
+        enabled: true
+        # -- Storage class. Empty uses `global.storageClass`, then the cluster
+        # default; `-` requests no class.
+        storageClass: ""
+        # -- Access modes.
+        accessModes: [ReadWriteOnce] # @schema item: string
+        # -- Volume size: uploaded files, deployment sources and build output.
+        size: 20Gi
+        # -- Annotations for the PersistentVolumeClaim.
+        annotations: {} # @schema additionalProperties: {type: string}
+      # -- Pod security context. The image runs as root by default; the
+      # chart runs it as UID 1000.
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      # -- Container security context.
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        privileged: false
+        capabilities:
+          drop: [ALL]
+      # -- Pod annotations, merged over `defaults.podAnnotations`.
+      podAnnotations: {} # @schema additionalProperties: {type: string}
+      # -- Pod labels, merged over `defaults.podLabels`.
+      podLabels: {} # @schema additionalProperties: {type: string}
+      # -- Node selector. Empty inherits `defaults.nodeSelector`.
+      nodeSelector: {} # @schema additionalProperties: {type: string}
+      # -- Tolerations. Empty inherits `defaults.tolerations`.
+      tolerations: [] # @schema item: object
+      # -- Affinity. Empty inherits `defaults.affinity`.
+      affinity: {} # @schema additionalProperties: true
+      # -- Priority class. Empty inherits `defaults.priorityClassName`.
+      priorityClassName: ""
+      # -- Seconds to wait on shutdown.
+      terminationGracePeriodSeconds: 60
+      # -- Extra environment variables, as a list of EnvVar objects.
+      extraEnv: [] # @schema item: object
+      # -- Extra volumes.
+      extraVolumes: [] # @schema item: object
+      # -- Extra volume mounts for the main container.
+      extraVolumeMounts: [] # @schema item: object
+      # -- Extra init containers.
+      extraInitContainers: [] # @schema item: object
+      # -- Extra sidecar containers.
+      extraContainers: [] # @schema item: object
   # The `/storage` volume. Appwrite uses it for files with `device: local`,
   # and for certificates and scratch files with either device.
   volume:

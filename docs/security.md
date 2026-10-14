@@ -33,6 +33,7 @@ What that means for each pod:
 | Geo | `www-data` (82) | Its port 80 is hard-coded, so the pod sets the namespaced sysctl `net.ipv4.ip_unprivileged_port_start=0`, which `restricted` allows. |
 | PostgreSQL | `postgres` (999) | `/var/run/postgresql` is an `emptyDir`. |
 | Redis | `redis` (999) | |
+| SeaweedFS | 1000 | Runs as root in its own image; the chart sets UID 1000. The S3 users file is written to `/tmp` from the chart's Secret on start. |
 | ClickHouse | `clickhouse` (101) | Users and logging come from mounted files, because the image's entrypoint would otherwise write them to `/etc`. Logs go to stdout. |
 | Browser | 999 | `/dev/shm` is a memory `emptyDir`. |
 | Autogravity | 65532 | |
@@ -108,7 +109,7 @@ The chart keeps credentials in a Secret named after the release:
 | `clickhouse-password` | `clickhouse.password` | ClickHouse, built-in or external. |
 | `documentsdb-password`, `vectorsdb-password` | `documentsDb.password`, `vectorsDb.password` | DocumentsDB and VectorsDB, when they have a password of their own. |
 | `executor-secret`, `orchestrator-secret` | `compute.secrets.executorSecret`, `orchestratorSecret` | The executor and the orchestrator (`compute.enabled`). The in-cluster executor gets a copy of `executor-secret` and the S3 keys in a Secret in its namespace. |
-| `s3-access-key`, `s3-secret-key` | `storage.s3.accessKeyId`, `storage.s3.secretAccessKey` | S3 storage. |
+| `s3-access-key`, `s3-secret-key` | `storage.s3.accessKeyId`, `storage.s3.secretAccessKey` | S3 storage, built-in or external. Generated once for the built-in store. |
 | `smtp-password` | `smtp.password` | SMTP. |
 
 The datastore, S3 and SMTP credentials all take the same three
@@ -266,6 +267,7 @@ which carry the label `appwrite/datastore-client: "true"`.
 | `<fullname>-builds-to-api` | API (`compute.enabled`) | build pods, on the HTTP port |
 | `<fullname>-internal` | geo, browser, autogravity, embedding | pods of the release |
 | `<fullname>-datastores` | PostgreSQL, Redis, ClickHouse | Appwrite pods of the release; on the metrics ports (`database.builtin.metrics.enabled` and the same under `redis` and `clickhouse`), also `networkPolicy.metrics.from` |
+| `<fullname>-object-storage` | SeaweedFS (`storage.s3.mode: builtin` with `device: s3`) | Appwrite pods and the orchestrator of the release, build pods and the executor, on the S3 port |
 | `<fullname>-background` | workers and tasks | nothing |
 | `<fullname>-mqtt` | MQTT broker (`mqtt.enabled`) | `networkPolicy.ingress.from` (any source when empty), on the MQTT ports |
 | `<fullname>-orchestrator` | orchestrator (`compute.enabled`) | pods of the release and build pods, on the HTTP port |
@@ -287,8 +289,8 @@ in the other namespaces, whether or not `networkPolicy.enabled` is set:
 
 | Policy | Namespace | Allows in | Allows out | Toggle |
 | --- | --- | --- | --- | --- |
-| `<fullname>-build` | build | nothing | DNS, the API and orchestrator, the S3 endpoint, public addresses, `extraEgress` | `compute.builds.networkPolicy.enabled` |
-| `<fullname>-executor` | executor | Appwrite pods of the release, on port 9900 | DNS, the S3 endpoint, public addresses, `extraEgress` | `compute.executor.networkPolicy.enabled` |
+| `<fullname>-build` | build | nothing | DNS, the API and orchestrator, the built-in object store or the S3 endpoint, public addresses, `extraEgress` | `compute.builds.networkPolicy.enabled` |
+| `<fullname>-executor` | executor | Appwrite pods of the release, on port 9900 | DNS, the built-in object store or the S3 endpoint, public addresses, `extraEgress` | `compute.executor.networkPolicy.enabled` |
 
 Both are on by default. [executor.md](executor.md#isolation) explains which
 ranges count as public and how to add rules.

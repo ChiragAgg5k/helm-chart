@@ -29,8 +29,10 @@
 storage:
   device: s3
   s3:
-    endpoint: https://s3.example.com  # empty for AWS S3
-    region: us-east-1
+    mode: external
+    external:
+      endpoint: https://s3.example.com  # empty for AWS S3
+      region: us-east-1
     bucket: appwrite
     accessKeyId:
       value: <access key>

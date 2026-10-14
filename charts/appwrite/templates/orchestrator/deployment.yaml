@@ -3,6 +3,7 @@
 {{- $b := .Values.compute.builds }}
 {{- $cs := .Values.compute.secrets }}
 {{- $s3 := .Values.storage.s3 }}
+{{- $conn := include "appwrite.s3" . | fromYaml }}
 {{- $name := include "appwrite.componentName" (dict "root" . "component" "orchestrator") }}
 {{- $env := list
   (dict "name" "ORCHESTRATOR_BACKEND" "value" "kubernetes")
@@ -16,10 +17,10 @@
   (dict "name" "KUBE_MEMORY_OVERCOMMIT" "value" (include "appwrite.envValue" $b.memoryOvercommit))
   (dict "name" "SHUTDOWN_DRAIN_WAIT" "value" "0s")
   (dict "name" "API_KEY_FILE" "value" "/var/run/secrets/orchestrator/api-key")
-  (dict "name" "S3_REGION" "value" $s3.region)
+  (dict "name" "S3_REGION" "value" $conn.region)
   (dict "name" "S3_ACCESS_KEY_ID" "valueFrom" (include "appwrite.credential.valueFrom" (dict "root" . "ref" $s3.accessKeyId "chartKey" "s3-access-key") | fromYaml))
   (dict "name" "S3_SECRET_ACCESS_KEY" "valueFrom" (include "appwrite.credential.valueFrom" (dict "root" . "ref" $s3.secretAccessKey "chartKey" "s3-secret-key") | fromYaml)) }}
-{{- with $s3.endpoint }}
+{{- with $conn.endpoint }}
 {{- $env = append $env (dict "name" "S3_ENDPOINT" "value" .) }}
 {{- end }}
 {{- with $b.nodeSelector }}

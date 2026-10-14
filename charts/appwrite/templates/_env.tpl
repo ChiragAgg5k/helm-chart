@@ -98,9 +98,10 @@ on each container (see appwrite.env).
 {{- $_ := set $computed "_APP_STORAGE_LIMIT" $storage.limit }}
 {{- $_ := set $computed "_APP_STORAGE_PREVIEW_LIMIT" $storage.previewLimit }}
 {{- if eq $storage.device "s3" }}
-{{- $_ := set $computed "_APP_STORAGE_S3_ENDPOINT" $storage.s3.endpoint }}
-{{- $_ := set $computed "_APP_STORAGE_S3_REGION" $storage.s3.region }}
-{{- $_ := set $computed "_APP_STORAGE_S3_BUCKET" $storage.s3.bucket }}
+{{- $s3 := include "appwrite.s3" . | fromYaml }}
+{{- $_ := set $computed "_APP_STORAGE_S3_ENDPOINT" $s3.endpoint }}
+{{- $_ := set $computed "_APP_STORAGE_S3_REGION" $s3.region }}
+{{- $_ := set $computed "_APP_STORAGE_S3_BUCKET" $s3.bucket }}
 {{- end }}
 
 {{- /* Compute plane (Functions and Sites): the orchestrator runs builds as Jobs, the executor runs executions; build Jobs call back to the API Service */}}

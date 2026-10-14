@@ -1,0 +1,151 @@
+suite: built-in object storage
+templates:
+  - templates/seaweedfs/statefulset.yaml
+  - templates/seaweedfs/service.yaml
+  - templates/secret.yaml
+  - templates/configmap-env.yaml
+  - templates/networkpolicy/object-storage.yaml
+  - templates/executor/networkpolicy.yaml
+  - templates/builds/networkpolicy.yaml
+release:
+  name: aw
+  namespace: appwrite
+values:
+  - values/required.yaml
+set:
+  storage.device: s3
+tests:
+  - it: runs nothing with local storage
+    templates:
+      - templates/seaweedfs/statefulset.yaml
+      - templates/seaweedfs/service.yaml
+    set:
+      storage.device: local
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: runs nothing with an external store
+    templates:
+      - templates/seaweedfs/statefulset.yaml
+      - templates/seaweedfs/service.yaml
+    set:
+      storage.s3.mode: external
+      storage.s3.accessKeyId.value: key
+      storage.s3.secretAccessKey.value: secret
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: writes the S3 gateway's user from the chart Secret and serves only S3
+    template: templates/seaweedfs/statefulset.yaml
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: 'exec weed server -dir=/data -ip=127.0.0.1 -ip.bind=0.0.0.0 -s3 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=1024 -volume.max=0'
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: S3_ACCESS_KEY
+            valueFrom:
+              secretKeyRef: {name: aw-appwrite, key: s3-access-key}
+      - equal:
+          path: spec.template.spec.containers[0].ports
+          value: [{name: s3, containerPort: 8333, protocol: TCP}]
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 20Gi
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1000
+      - exists:
+          path: spec.template.metadata.annotations["checksum/secret"]
+
+  - it: creates the bucket before the pod is ready, accepting one that exists
+    template: templates/seaweedfs/statefulset.yaml
+    set:
+      storage.s3.bucket: files
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: S3_BUCKET, value: files}
+      - matchRegex:
+          path: spec.template.spec.containers[0].lifecycle.postStart.exec.command[2]
+          pattern: 's3.bucket.create -name \$S3_BUCKET[\s\S]*already exists'
+
+  - it: generates the access keys once, like the other built-in credentials
+    template: templates/secret.yaml
+    asserts:
+      - exists:
+          path: data["s3-access-key"]
+      - exists:
+          path: data["s3-secret-key"]
+
+  - it: points Appwrite at the built-in store
+    template: templates/configmap-env.yaml
+    asserts:
+      - equal:
+          path: data._APP_STORAGE_S3_ENDPOINT
+          value: http://aw-appwrite-seaweedfs.appwrite.svc:8333
+      - equal:
+          path: data._APP_STORAGE_S3_BUCKET
+          value: appwrite
+
+  - it: requires credentials for an external store only
+    template: templates/configmap-env.yaml
+    set:
+      storage.s3.mode: external
+    asserts:
+      - failedTemplate:
+          errorPattern: storage.s3.accessKeyId and storage.s3.secretAccessKey need a value or a secretName with storage.s3.mode external
+
+  - it: fails on the moved endpoint with where it went
+    template: templates/configmap-env.yaml
+    set:
+      storage.s3.endpoint: https://s3.example.com
+    asserts:
+      - failedTemplate:
+          errorPattern: "storage.s3.endpoint is no longer supported: moved to storage.s3.external.endpoint"
+
+  - it: lets Appwrite, the orchestrator, builds and the executor reach the store
+    template: templates/networkpolicy/object-storage.yaml
+    set:
+      networkPolicy.enabled: true
+      compute.enabled: true
+      compute.executor.privileged: true
+    asserts:
+      - equal:
+          path: spec.ingress[0].ports
+          value: [{port: s3, protocol: TCP}]
+      - contains:
+          path: spec.ingress[0].from
+          content:
+            namespaceSelector:
+              matchLabels: {kubernetes.io/metadata.name: appwrite-builds}
+      - contains:
+          path: spec.ingress[0].from
+          content:
+            namespaceSelector:
+              matchLabels: {kubernetes.io/metadata.name: appwrite-executor}
+
+  - it: lets the executor and build pods out to the built-in store
+    templates:
+      - templates/executor/networkpolicy.yaml
+      - templates/builds/networkpolicy.yaml
+    set:
+      compute.enabled: true
+      compute.executor.privileged: true
+    asserts:
+      - contains:
+          path: spec.egress
+          content:
+            to:
+              - namespaceSelector:
+                  matchLabels: {kubernetes.io/metadata.name: appwrite}
+                podSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: appwrite
+                    app.kubernetes.io/instance: aw
+                  matchExpressions:
+                    - {key: app.kubernetes.io/component, operator: In, values: [seaweedfs]}
+            ports: [{port: 8333, protocol: TCP}]

@@ -7,6 +7,8 @@ minor release (CONTRIBUTING.md, "Deprecating a value").
 */}}
 {{- define "appwrite.deprecations.renamed" -}}
 assistant: Appwrite removed the assistant in 2.4.0. Delete the assistant block from your values.
+storage.s3.endpoint: "moved to storage.s3.external.endpoint, with storage.s3.mode: external (the default, builtin, runs SeaweedFS in the release)."
+storage.s3.region: "moved to storage.s3.external.region, with storage.s3.mode: external."
 {{- end }}
 
 {{/*

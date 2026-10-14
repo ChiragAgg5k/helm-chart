@@ -4152,23 +4152,226 @@
                   "type": "string"
                 },
                 "value": {
-                  "description": "Access key ID, set inline. Stored in the chart's Secret.",
+                  "description": "Access key ID, set inline. Stored in the chart's Secret. With `mode: builtin`, generated once when empty.",
                   "type": "string"
                 }
               },
               "additionalProperties": false
             },
             "bucket": {
-              "description": "Bucket (`_APP_STORAGE_S3_BUCKET`). Required with `device: s3`.",
+              "description": "Bucket (`_APP_STORAGE_S3_BUCKET`). The built-in store creates it.",
               "type": "string"
             },
-            "endpoint": {
-              "description": "Endpoint of an S3-compatible store (`_APP_STORAGE_S3_ENDPOINT`), e.g. `https://fsn1.your-objectstorage.com` or `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3. Endpoints and regions per provider: docs/storage.md#s3.",
-              "type": "string"
+            "builtin": {
+              "type": "object",
+              "properties": {
+                "affinity": {
+                  "type": "object",
+                  "description": "Affinity. Empty inherits `defaults.affinity`."
+                },
+                "containerSecurityContext": {
+                  "type": "object",
+                  "description": "Container security context."
+                },
+                "extraContainers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Extra sidecar containers."
+                },
+                "extraEnv": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Extra environment variables, as a list of EnvVar objects."
+                },
+                "extraInitContainers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Extra init containers."
+                },
+                "extraVolumeMounts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Extra volume mounts for the main container."
+                },
+                "extraVolumes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Extra volumes."
+                },
+                "image": {
+                  "type": "object",
+                  "properties": {
+                    "digest": {
+                      "type": "string",
+                      "pattern": "^$|^sha256:[a-f0-9]{64}$",
+                      "description": "Image digest."
+                    },
+                    "pullPolicy": {
+                      "description": "Image pull policy.",
+                      "type": "string",
+                      "enum": [
+                        "Always",
+                        "IfNotPresent",
+                        "Never"
+                      ]
+                    },
+                    "registry": {
+                      "description": "Image registry.",
+                      "type": "string"
+                    },
+                    "repository": {
+                      "description": "Image repository.",
+                      "type": "string"
+                    },
+                    "tag": {
+                      "description": "Image tag.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "nodeSelector": {
+                  "description": "Node selector. Empty inherits `defaults.nodeSelector`.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "persistence": {
+                  "type": "object",
+                  "properties": {
+                    "accessModes": {
+                      "description": "Access modes.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "annotations": {
+                      "description": "Annotations for the PersistentVolumeClaim.",
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "enabled": {
+                      "description": "Persist data in a PersistentVolumeClaim. Without it, every restart loses the files and build output.",
+                      "type": "boolean"
+                    },
+                    "size": {
+                      "description": "Volume size: uploaded files, deployment sources and build output.",
+                      "type": "string"
+                    },
+                    "storageClass": {
+                      "description": "Storage class. Empty uses `global.storageClass`, then the cluster default; `-` requests no class.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "podAnnotations": {
+                  "description": "Pod annotations, merged over `defaults.podAnnotations`.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "podLabels": {
+                  "description": "Pod labels, merged over `defaults.podLabels`.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "podSecurityContext": {
+                  "type": "object",
+                  "description": "Pod security context. The image runs as root by default; the chart runs it as UID 1000."
+                },
+                "priorityClassName": {
+                  "description": "Priority class. Empty inherits `defaults.priorityClassName`.",
+                  "type": "string"
+                },
+                "resources": {
+                  "type": "object",
+                  "properties": {
+                    "requests": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      }
+                    },
+                    "limits": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      }
+                    },
+                    "claims": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  },
+                  "additionalProperties": false,
+                  "description": "Resource requests and limits."
+                },
+                "terminationGracePeriodSeconds": {
+                  "description": "Seconds to wait on shutdown.",
+                  "type": "integer"
+                },
+                "tolerations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Tolerations. Empty inherits `defaults.tolerations`."
+                },
+                "volumeSizeLimitMB": {
+                  "description": "Size of each SeaweedFS volume file in MB. The store fills the disk with volumes of this size, so keep it well below `persistence.size`.",
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "additionalProperties": false
             },
-            "region": {
-              "description": "Region (`_APP_STORAGE_S3_REGION`).",
-              "type": "string"
+            "external": {
+              "type": "object",
+              "properties": {
+                "endpoint": {
+                  "description": "Endpoint (`_APP_STORAGE_S3_ENDPOINT`), e.g. `https://fsn1.your-objectstorage.com` or `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3. Endpoints and regions per provider: docs/storage.md#s3.",
+                  "type": "string"
+                },
+                "region": {
+                  "description": "Region (`_APP_STORAGE_S3_REGION`).",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "mode": {
+              "description": "`builtin` runs SeaweedFS, an S3-compatible store, in the release; `external` uses `storage.s3.external`. Only used with `device: s3`.",
+              "type": "string",
+              "enum": [
+                "builtin",
+                "external"
+              ]
             },
             "secretAccessKey": {
               "type": "object",
@@ -4182,11 +4385,17 @@
                   "type": "string"
                 },
                 "value": {
-                  "description": "Secret access key, set inline. Stored in the chart's Secret.",
+                  "description": "Secret access key, set inline. Stored in the chart's Secret. With `mode: builtin`, generated once when empty.",
                   "type": "string"
                 }
               },
               "additionalProperties": false
+            },
+            "endpoint": {
+              "description": "No longer supported: setting storage.s3.endpoint fails with what to do instead."
+            },
+            "region": {
+              "description": "No longer supported: setting storage.s3.region fails with what to do instead."
             }
           },
           "additionalProperties": false
