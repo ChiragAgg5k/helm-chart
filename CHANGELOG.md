@@ -8,6 +8,11 @@ annotation in `charts/appwrite/Chart.yaml`.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-14
+
+Appwrite 2.5.0, with Functions and Sites on by default. Upgrading from 1.0.0:
+see [docs/upgrading.md](docs/upgrading.md#to-200).
+
 ### Changed
 
 - Functions and Sites are on by default: `compute.enabled` and
