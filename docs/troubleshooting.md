@@ -323,11 +323,12 @@ start, executions that time out: see
 ### Site deployments log "Screenshot capturing failed"
 
 The site deploys and serves, but its deployment log ends with "Screenshot
-capturing failed" and the console shows no preview. The screenshots worker
-logs the cause:
+capturing failed" and the console shows no preview. The worker that
+consumes the screenshots queue logs the cause; this finds it with any
+`workers.mode`:
 
 ```console
-kubectl -n appwrite logs deploy/appwrite-worker | grep -i screenshots | tail -1
+kubectl -n appwrite logs -l appwrite/role=worker --prefix --tail=2000 | grep -i screenshots | tail -1
 ```
 
 - `Could not resolve host: appwrite-browser`: the browser is off
