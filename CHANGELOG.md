@@ -8,6 +8,16 @@ annotation in `charts/appwrite/Chart.yaml`.
 
 ## [Unreleased]
 
+### Changed
+
+- The browser is on by default (`browser.enabled`), since Sites are: it
+  renders their preview screenshots. Without it, every site deployment logs
+  "Screenshot capturing failed" and the console shows no preview.
+
+### Added
+
+- Troubleshooting for site deployments whose screenshot fails.
+
 ## [2.0.0] - 2026-10-14
 
 Appwrite 2.5.0, with Functions and Sites on by default. Upgrading from 1.0.0:

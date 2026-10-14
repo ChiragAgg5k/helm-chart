@@ -965,7 +965,7 @@ The build orchestrator and the executor.
 | autogravity.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
 | browser.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
 | browser.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
-| browser.enabled | bool | `false` | Deploy the browser service. |
+| browser.enabled | bool | `true` | Deploy the browser service. Sites need it for their preview screenshots: without it, every site deployment logs that capturing the screenshot failed, and the console shows no preview. |
 | browser.extraContainers | list | `[]` | Extra sidecar containers. |
 | browser.extraEnv | list | `[]` | Extra environment variables, as a list of EnvVar objects. |
 | browser.extraInitContainers | list | `[]` | Extra init containers. |

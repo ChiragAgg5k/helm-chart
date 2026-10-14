@@ -1,12 +1,13 @@
 # Optional components
 
 Appwrite's Docker install ships a few supporting services. The chart can run
-each of them. Geo is on by default; the others are off until you enable them.
+each of them. Geo and the browser are on by default; the others are off until
+you enable them.
 
 | Component | Value | Default | What it gives you |
 | --- | --- | --- | --- |
 | [Geo](#geo) | `geo.enabled` | on | Country and location for sessions and logs. |
-| [Browser](#browser) | `browser.enabled` | off | Site screenshots and `/v1/avatars/screenshots`. |
+| [Browser](#browser) | `browser.enabled` | on | Site screenshots and `/v1/avatars/screenshots`. |
 | [Autogravity](#autogravity) | `autogravity.enabled` | off | Image previews cropped around the subject (`gravity=auto`). |
 | [Embedding](#embedding) | `embedding.enabled` | off | The embeddings API, which turns text into vectors. |
 | [MQTT](#mqtt) | `mqtt.enabled` | off | Push notifications over MQTT, through Messaging's Appwrite provider. |
@@ -32,12 +33,16 @@ pod lowers `net.ipv4.ip_unprivileged_port_start` instead of running as root.
 ## Browser
 
 A headless Chromium that renders screenshots: of each site deployment, shown
-in the console, and of any URL through the avatars API.
+in the console, and of any URL through the avatars API. It's on by default,
+because Sites are. To turn it off:
 
 ```yaml
 browser:
-  enabled: true
+  enabled: false
 ```
+
+Without it, every site deployment logs "Screenshot capturing failed" and the
+console shows no preview; the site itself deploys and serves normally.
 
 Users choose the URLs it loads, so treat it as a way into your network. With
 `networkPolicy.enabled`, the `<fullname>-browser-egress` policy limits it to

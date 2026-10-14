@@ -320,6 +320,25 @@ Deployments that stay `waiting`, builds that fail, executor pods that don't
 start, executions that time out: see
 [executor.md](executor.md#troubleshooting).
 
+### Site deployments log "Screenshot capturing failed"
+
+The site deploys and serves, but its deployment log ends with "Screenshot
+capturing failed" and the console shows no preview. The screenshots worker
+logs the cause:
+
+```console
+kubectl -n appwrite logs deploy/appwrite-worker | grep -i screenshots | tail -1
+```
+
+- `Could not resolve host: appwrite-browser`: the browser is off
+  (`browser.enabled: false`). Turn it on and redeploy the site; screenshots
+  are only taken during a deployment
+  ([optional-components.md](optional-components.md#browser)).
+- A timeout, or a refused connection to the API: with `networkPolicy.enabled`,
+  the browser may only reach DNS, the API and public addresses
+  ([security.md](security.md#network-policies)); check that its egress
+  policy matches your DNS ([networking.md](networking.md#networkpolicies-and-dns)).
+
 ### Deployments fail with an internal error
 
 Every deployment fails with "An internal error occurred while building", and
