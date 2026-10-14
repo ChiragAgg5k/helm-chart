@@ -541,180 +541,6 @@
       },
       "additionalProperties": false
     },
-    "assistant": {
-      "type": "object",
-      "properties": {
-        "affinity": {
-          "type": "object",
-          "description": "Affinity. Empty inherits `defaults.affinity`."
-        },
-        "apiKey": {
-          "type": "object",
-          "properties": {
-            "secretKey": {
-              "description": "Key in the Secret.",
-              "type": "string"
-            },
-            "secretName": {
-              "description": "Existing Secret holding the OpenAI API key. Takes precedence over `value`.",
-              "type": "string"
-            },
-            "value": {
-              "description": "OpenAI API key (`_APP_ASSISTANT_OPENAI_API_KEY`), set inline. Stored in the chart's Secret.",
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "containerSecurityContext": {
-          "type": "object",
-          "description": "Container security context."
-        },
-        "enabled": {
-          "description": "Deploy the assistant.",
-          "type": "boolean"
-        },
-        "extraContainers": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Extra sidecar containers."
-        },
-        "extraEnv": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Extra environment variables, as a list of EnvVar objects."
-        },
-        "extraInitContainers": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Extra init containers."
-        },
-        "extraVolumeMounts": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Extra volume mounts for the main container."
-        },
-        "extraVolumes": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Extra volumes."
-        },
-        "image": {
-          "type": "object",
-          "properties": {
-            "digest": {
-              "type": "string",
-              "pattern": "^$|^sha256:[a-f0-9]{64}$",
-              "description": "Image digest."
-            },
-            "pullPolicy": {
-              "description": "Image pull policy.",
-              "type": "string",
-              "enum": [
-                "Always",
-                "IfNotPresent",
-                "Never"
-              ]
-            },
-            "registry": {
-              "description": "Image registry.",
-              "type": "string"
-            },
-            "repository": {
-              "description": "Image repository.",
-              "type": "string"
-            },
-            "tag": {
-              "description": "Image tag.",
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "nodeSelector": {
-          "description": "Node selector. Empty inherits `defaults.nodeSelector`.",
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "podAnnotations": {
-          "description": "Pod annotations, merged over `defaults.podAnnotations`.",
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "podLabels": {
-          "description": "Pod labels, merged over `defaults.podLabels`.",
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "podSecurityContext": {
-          "type": "object",
-          "description": "Pod security context."
-        },
-        "priorityClassName": {
-          "description": "Priority class. Empty inherits `defaults.priorityClassName`.",
-          "type": "string"
-        },
-        "resources": {
-          "type": "object",
-          "properties": {
-            "requests": {
-              "type": "object",
-              "additionalProperties": {
-                "type": [
-                  "string",
-                  "number"
-                ]
-              }
-            },
-            "limits": {
-              "type": "object",
-              "additionalProperties": {
-                "type": [
-                  "string",
-                  "number"
-                ]
-              }
-            },
-            "claims": {
-              "type": "array",
-              "items": {
-                "type": "object"
-              }
-            }
-          },
-          "additionalProperties": false,
-          "description": "Resource requests and limits."
-        },
-        "terminationGracePeriodSeconds": {
-          "description": "Seconds to wait on shutdown.",
-          "type": "integer"
-        },
-        "tolerations": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Tolerations. Empty inherits `defaults.tolerations`."
-        }
-      },
-      "additionalProperties": false
-    },
     "autogravity": {
       "type": "object",
       "properties": {
@@ -1618,7 +1444,7 @@
           "additionalProperties": false
         },
         "functionsRuntimes": {
-          "description": "Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (node-16.0, php-8.0, python-3.9, ruby-3.0).",
+          "description": "Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (node-16.0, node-22, php-8.0, python-3.9, ruby-3.0).",
           "type": "array",
           "items": {
             "type": "string"
@@ -1836,9 +1662,6 @@
               "type": "string"
             },
             "VITE_CONSOLE_PROFILE": {
-              "type": "string"
-            },
-            "VITE_GROWTH_ENDPOINT": {
               "type": "string"
             }
           },
@@ -3531,7 +3354,7 @@
               "description": "DNS servers (NetworkPolicyPeer) allowed on port 53 wherever egress is restricted: here, for the browser, and for the executor and build Jobs, whose policies are on by default with compute. For NodeLocal DNSCache, add `{ipBlock: {cidr: 169.254.20.10/32}}`. DNS on another port (OpenShift: 5353) needs rules in `extraRules`, `compute.executor.networkPolicy.extraEgress` and `compute.builds.networkPolicy.extraEgress`."
             },
             "enabled": {
-              "description": "Restrict egress to DNS, pods of this release and `extraRules` (needs `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and the DNS server it verifies custom domains against (`_APP_DNS`, 8.8.8.8). With compute, the orchestrator also needs the Kubernetes API. Allow what you use in `extraRules`; the executor is allowed already.",
+              "description": "Restrict egress to DNS, pods of this release and `extraRules` (needs `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and the DNS server it verifies custom domains, migration sources and avatar URLs against (`_APP_DNS` and `_APP_DNS_EXTERNAL`, 8.8.8.8). With compute, the orchestrator also needs the Kubernetes API. Allow what you use in `extraRules`; the executor is allowed already.",
               "type": "boolean"
             },
             "extraRules": {
@@ -3545,7 +3368,7 @@
           "additionalProperties": false
         },
         "enabled": {
-          "description": "Create NetworkPolicies in the release namespace. The built-in datastores then accept only Appwrite pods of this release, the internal services (geo, browser, assistant, autogravity, embedding) only pods of this release, and workers and tasks no incoming traffic. Off by default: any pod in the cluster can reach the built-in PostgreSQL, Redis and ClickHouse, which only their passwords protect. Policies only take effect with a CNI that enforces them.",
+          "description": "Create NetworkPolicies in the release namespace. The built-in datastores then accept only Appwrite pods of this release, the internal services (geo, browser, autogravity, embedding) only pods of this release, and workers and tasks no incoming traffic. Off by default: any pod in the cluster can reach the built-in PostgreSQL, Redis and ClickHouse, which only their passwords protect. Policies only take effect with a CNI that enforces them.",
           "type": "boolean"
         },
         "ingress": {
@@ -6019,6 +5842,9 @@
         }
       },
       "additionalProperties": false
+    },
+    "assistant": {
+      "description": "No longer supported: setting assistant fails with what to do instead."
     }
   },
   "additionalProperties": false

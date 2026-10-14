@@ -232,14 +232,6 @@ Usage: include "appwrite.env" (dict "root" $ "cpuNum" "1" "extra" (dict "_APP_WO
   valueFrom:
     {{- include "appwrite.secretRef" (dict "root" $root "existingSecret" $cs.existingSecret "key" $cs.orchestratorSecretKey "defaultKey" "orchestrator-secret") | nindent 4 }}
 {{- end }}
-{{- if $v.assistant.enabled }}
-{{- /* The console shows the assistant when Appwrite has the key. */}}
-{{- with include "appwrite.credential.valueFrom" (dict "root" $root "ref" $v.assistant.apiKey "chartKey" "openai-api-key") | fromYaml }}
-- name: _APP_ASSISTANT_OPENAI_API_KEY
-  valueFrom:
-    {{- toYaml . | nindent 4 }}
-{{- end }}
-{{- end }}
 {{- with include "appwrite.credential.valueFrom" (dict "root" $root "ref" $v.smtp.password "chartKey" "smtp-password") | fromYaml }}
 - name: _APP_SMTP_PASSWORD
   valueFrom:

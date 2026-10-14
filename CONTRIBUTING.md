@@ -157,7 +157,7 @@ also opens a pull request for `appVersion`). To follow it:
    new version's `app/config/variables.php`, and review the diff. New
    variables may need values or computed settings in `templates/_env.tpl`.
 3. Compare the new version's `docker-compose.yml` with the chart: image tags
-   of the console, geo, assistant, browser and other components, the
+   of the console, geo, browser and other components, the
    orchestrator and executor versions, new workers or queues
    (`app/config/workers.php`, mirrored by the queue catalog in
    `templates/workers/_workers.tpl` and by `workers.queues`), and new tasks.

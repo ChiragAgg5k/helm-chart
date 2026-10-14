@@ -7,7 +7,6 @@ each of them. Geo is on by default; the others are off until you enable them.
 | --- | --- | --- | --- |
 | [Geo](#geo) | `geo.enabled` | on | Country and location for sessions and logs. |
 | [Browser](#browser) | `browser.enabled` | off | Site screenshots and `/v1/avatars/screenshots`. |
-| [Assistant](#assistant) | `assistant.enabled` | off | The console's AI assistant. Needs an OpenAI API key. |
 | [Autogravity](#autogravity) | `autogravity.enabled` | off | Image previews cropped around the subject (`gravity=auto`). |
 | [Embedding](#embedding) | `embedding.enabled` | off | The embeddings API, which turns text into vectors. |
 | [MQTT](#mqtt) | `mqtt.enabled` | off | Push notifications over MQTT, through Messaging's Appwrite provider. |
@@ -52,34 +51,6 @@ nothing restricts it. See [security.md](security.md#network-policies).
 It runs as UID 999 with a read-only root filesystem, a writable `/tmp`, and
 a 256 MiB in-memory `/dev/shm` for Chromium, which counts towards its memory
 limit. Scale it with `browser.replicaCount`.
-
-## Assistant
-
-The AI assistant in the console. It answers through OpenAI's API with your
-key, so prompts leave the cluster.
-
-```console
-kubectl -n appwrite create secret generic openai \
-  --from-literal=openai-api-key='sk-...'
-```
-
-```yaml
-assistant:
-  enabled: true
-  apiKey:
-    secretName: openai         # key openai-api-key; or value: sk-... inline
-```
-
-The chart refuses to install without a key. The key is also passed to every
-Appwrite pod (`_APP_ASSISTANT_OPENAI_API_KEY`), which is how the console
-knows to show the assistant.
-
-Appwrite reaches the assistant at the fixed address
-`http://appwrite-assistant:3003`, so its Service is named
-`appwrite-assistant` regardless of the release name. Only one release per
-namespace can enable it. It runs as a single pod. With
-`networkPolicy.egress.enabled`, allow it to reach `api.openai.com` on port
-443 in `networkPolicy.egress.extraRules`.
 
 ## Autogravity
 
@@ -166,9 +137,8 @@ with `mqtt.replicaCount`. `_APP_MQTT_REPLAY_DEPTH` (5) and
 
 | Component | Image | Requests | Memory limit | Replicas |
 | --- | --- | --- | --- | --- |
-| Geo | `docker.io/appwrite/geo:0.3.1` | 20m CPU, 128Mi | 512Mi | `geo.replicaCount` (1) |
-| Browser | `docker.io/appwrite/browser:0.3.4` | 100m CPU, 512Mi | 2Gi | `browser.replicaCount` (1) |
-| Assistant | `docker.io/appwrite/assistant:0.8.4` | 20m CPU, 128Mi | 512Mi | 1 |
+| Geo | `docker.io/appwrite/geo:0.3.2` | 20m CPU, 128Mi | 512Mi | `geo.replicaCount` (1) |
+| Browser | `docker.io/appwrite/browser:0.3.6` | 100m CPU, 512Mi | 2Gi | `browser.replicaCount` (1) |
 | Autogravity | `ghcr.io/appwrite/autogravity:0.0.11` | 100m CPU, 512Mi | 2Gi | 1 |
 | Embedding | `docker.io/appwrite/embedding:0.3.1` | 250m CPU, 1Gi | 4Gi | 1 |
 | MQTT | the Appwrite image | 50m CPU, 128Mi | 512Mi | `mqtt.replicaCount` (1) |

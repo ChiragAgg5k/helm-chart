@@ -249,7 +249,7 @@ appwrite:
 ```
 
 Run ClamAV separately (for example with its official image as a Deployment).
-Appwrite 2.3.0 scans only:
+Appwrite 2.5.0 scans only:
 
 - with `device: local`. Files stored in S3 aren't scanned.
 - files up to 20 MB.

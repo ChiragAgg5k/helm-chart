@@ -115,7 +115,7 @@ instead ([existing Secrets](#existing-secrets)).
 | --- | --- | --- |
 | `compute.enabled` | `false` | Deploys the orchestrator and the executor and turns on Functions and Sites. |
 | `compute.executor.privileged` | `false` | Accepts the privileged Docker daemon. Required unless `compute.executor.runtimeClassName` is set. |
-| `compute.functionsRuntimes` | `[]` | Function runtimes (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (`node-16.0`, `php-8.0`, `python-3.9`, `ruby-3.0`). |
+| `compute.functionsRuntimes` | `[]` | Function runtimes (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (`node-16.0`, `node-22`, `php-8.0`, `python-3.9`, `ruby-3.0`). |
 | `compute.sitesRuntimes` | `[]` | Site runtimes (`_APP_SITES_RUNTIMES`). Empty keeps Appwrite's default list. |
 | `compute.executor.nodeSelector`, `tolerations` | inherit `defaults` | Where executor pods run. |
 

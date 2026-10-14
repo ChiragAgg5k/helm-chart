@@ -97,7 +97,7 @@ to the guide that explains it.
 
 ## Monitoring
 
-Appwrite 2.3.0 exposes no Prometheus metrics. You have its logs, its health
+Appwrite 2.5.0 exposes no Prometheus metrics. You have its logs, its health
 API, and the metrics of Kubernetes and your datastores.
 
 | Watch | How | Alert when |

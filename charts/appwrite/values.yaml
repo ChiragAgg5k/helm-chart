@@ -427,7 +427,7 @@ vectorsDb:
 
 # Redis, for queues, cache, pub/sub and locks. `builtin` runs a
 # single-replica StatefulSet; `external` connects to a single endpoint
-# without TLS (Appwrite 2.3.0 has no Redis TLS, Sentinel or Cluster).
+# without TLS (Appwrite 2.5.0 has no Redis TLS, Sentinel or Cluster).
 # See docs/external-databases.md#redis.
 redis:
   # -- `builtin` deploys Redis in the release; `external` uses `redis.external`.
@@ -761,7 +761,7 @@ compute:
       # -- Image repository.
       repository: openruntimes/executor
       # -- Image tag.
-      tag: 0.29.0
+      tag: 1.1.2
       # -- Image digest.
       digest: ""
     dind:
@@ -947,7 +947,7 @@ compute:
       # ranges, IPv6 clusters).
       deniedCIDRs: [] # @schema item: string
   # -- Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the
-  # Docker installer's list (node-16.0, php-8.0, python-3.9, ruby-3.0).
+  # Docker installer's list (node-16.0, node-22, php-8.0, python-3.9, ruby-3.0).
   functionsRuntimes: [] # @schema item: string
   # -- Site runtimes to enable (`_APP_SITES_RUNTIMES`). Empty keeps the
   # Docker installer's list (static-1, node-22, flutter-3.29). Sites build
@@ -1091,7 +1091,7 @@ console:
     # -- Image repository.
     repository: appwrite/new
     # -- Image tag. Pinned to the console that ships with the chart's appVersion.
-    tag: 1.1.159-self-hosted
+    tag: 1.2.74-self-hosted
     # -- Image digest.
     digest: ""
     # -- Image pull policy.
@@ -1100,7 +1100,6 @@ console:
   env:
     VITE_CONSOLE_PROFILE: self-hosted
     APPWRITE_ENDPOINT_SAME_ORIGIN: "true"
-    VITE_GROWTH_ENDPOINT: https://growth.appwrite.io/v1
   # -- Number of console replicas. Ignored when autoscaling is enabled.
   replicaCount: 1 # @schema minimum: 0
   # -- Resource requests and limits.
@@ -1738,7 +1737,7 @@ geo:
     # -- Image repository.
     repository: appwrite/geo
     # -- Image tag.
-    tag: 0.3.1
+    tag: 0.3.2
     # -- Image digest.
     digest: ""
     # -- Image pull policy.
@@ -1807,7 +1806,7 @@ browser:
     # -- Image repository.
     repository: appwrite/browser
     # -- Image tag.
-    tag: 0.3.4
+    tag: 0.3.6
     # -- Image digest.
     digest: ""
     # -- Image pull policy.
@@ -1827,78 +1826,6 @@ browser:
     runAsUser: 999
     runAsGroup: 999
     fsGroup: 999
-    seccompProfile:
-      type: RuntimeDefault
-  # -- Container security context.
-  containerSecurityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    privileged: false
-    capabilities:
-      drop: [ALL]
-  # -- Pod annotations, merged over `defaults.podAnnotations`.
-  podAnnotations: {} # @schema additionalProperties: {type: string}
-  # -- Pod labels, merged over `defaults.podLabels`.
-  podLabels: {} # @schema additionalProperties: {type: string}
-  # -- Node selector. Empty inherits `defaults.nodeSelector`.
-  nodeSelector: {} # @schema additionalProperties: {type: string}
-  # -- Tolerations. Empty inherits `defaults.tolerations`.
-  tolerations: [] # @schema item: object
-  # -- Affinity. Empty inherits `defaults.affinity`.
-  affinity: {} # @schema additionalProperties: true
-  # -- Priority class. Empty inherits `defaults.priorityClassName`.
-  priorityClassName: ""
-  # -- Seconds to wait on shutdown.
-  terminationGracePeriodSeconds: 30
-  # -- Extra environment variables, as a list of EnvVar objects.
-  extraEnv: [] # @schema item: object
-  # -- Extra volumes.
-  extraVolumes: [] # @schema item: object
-  # -- Extra volume mounts for the main container.
-  extraVolumeMounts: [] # @schema item: object
-  # -- Extra init containers.
-  extraInitContainers: [] # @schema item: object
-  # -- Extra sidecar containers.
-  extraContainers: [] # @schema item: object
-
-# AI assistant in the console, backed by OpenAI. Appwrite reaches it at the
-# fixed address `appwrite-assistant:3003`, so its Service is named
-# `appwrite-assistant` and only one release per namespace can enable it.
-# See docs/optional-components.md#assistant.
-assistant:
-  # -- Deploy the assistant.
-  enabled: false
-  image:
-    # -- Image registry.
-    registry: docker.io
-    # -- Image repository.
-    repository: appwrite/assistant
-    # -- Image tag.
-    tag: 0.8.4
-    # -- Image digest.
-    digest: ""
-    # -- Image pull policy.
-    pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
-  apiKey:
-    # -- OpenAI API key (`_APP_ASSISTANT_OPENAI_API_KEY`), set inline. Stored in the chart's Secret.
-    value: ""
-    # -- Existing Secret holding the OpenAI API key. Takes precedence over `value`.
-    secretName: ""
-    # -- Key in the Secret.
-    secretKey: openai-api-key
-  # -- Resource requests and limits.
-  resources:
-    requests:
-      cpu: 20m
-      memory: 128Mi
-    limits:
-      memory: 512Mi
-  # -- Pod security context.
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    fsGroup: 1000
     seccompProfile:
       type: RuntimeDefault
   # -- Container security context.
@@ -2225,7 +2152,7 @@ httpRoute:
 networkPolicy:
   # -- Create NetworkPolicies in the release namespace. The built-in
   # datastores then accept only Appwrite pods of this release, the internal
-  # services (geo, browser, assistant, autogravity, embedding) only pods of
+  # services (geo, browser, autogravity, embedding) only pods of
   # this release, and workers and tasks no incoming traffic. Off by default:
   # any pod in the cluster can reach the built-in PostgreSQL, Redis and
   # ClickHouse, which only their passwords protect. Policies only take effect
@@ -2245,7 +2172,8 @@ networkPolicy:
   egress:
     # -- Restrict egress to DNS, pods of this release and `extraRules` (needs
     # `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and
-    # the DNS server it verifies custom domains against (`_APP_DNS`, 8.8.8.8).
+    # the DNS server it verifies custom domains, migration sources and avatar
+    # URLs against (`_APP_DNS` and `_APP_DNS_EXTERNAL`, 8.8.8.8).
     # With compute, the orchestrator also needs the Kubernetes API. Allow what
     # you use in `extraRules`; the executor is allowed already.
     enabled: false

@@ -49,7 +49,7 @@ built-in services, see
 | [Storage](storage.md) | Volumes, ReadWriteMany, S3, antivirus |
 | [Email, Git and other integrations](integrations.md) | SMTP, GitHub App, console sign-in, SMS, Sentry |
 | [Functions and Sites](executor.md) | Builds as Jobs and the executor on Docker-in-Docker |
-| [Optional components](optional-components.md) | Browser, assistant, autogravity, embedding, MQTT |
+| [Optional components](optional-components.md) | Browser, autogravity, embedding, MQTT |
 | [Security](security.md) | Pod security, credentials, NetworkPolicies, chart signatures |
 | [Every value](../charts/appwrite/README.md#values) | The generated reference of `values.yaml` |
 

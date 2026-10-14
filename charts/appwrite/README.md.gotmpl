@@ -164,7 +164,7 @@ See the [architecture guide](https://github.com/appwrite/helm-chart/blob/main/do
 - **Highly available datastores.** The built-in ones are single replicas. Use
   managed services or operators in production
   ([guide](https://github.com/appwrite/helm-chart/blob/main/docs/external-databases.md)).
-- **Metrics.** Appwrite 2.3.0 exposes no Prometheus metrics.
+- **Metrics.** Appwrite 2.5.0 exposes no Prometheus metrics.
 
 ## Documentation
 
@@ -178,7 +178,7 @@ See the [architecture guide](https://github.com/appwrite/helm-chart/blob/main/do
 | [Storage](https://github.com/appwrite/helm-chart/blob/main/docs/storage.md) | Volumes, ReadWriteMany, S3, antivirus |
 | [Email, Git and other integrations](https://github.com/appwrite/helm-chart/blob/main/docs/integrations.md) | SMTP, GitHub App, console sign-in, SMS, Sentry |
 | [Functions and Sites](https://github.com/appwrite/helm-chart/blob/main/docs/executor.md) | Builds as Jobs and the executor on Docker-in-Docker |
-| [Optional components](https://github.com/appwrite/helm-chart/blob/main/docs/optional-components.md) | Browser, assistant, autogravity, embedding, MQTT |
+| [Optional components](https://github.com/appwrite/helm-chart/blob/main/docs/optional-components.md) | Browser, autogravity, embedding, MQTT |
 | [Security](https://github.com/appwrite/helm-chart/blob/main/docs/security.md) | Pod security, credentials, NetworkPolicies, signatures |
 | [Upgrading](https://github.com/appwrite/helm-chart/blob/main/docs/upgrading.md) | Versions, migrations, rollbacks |
 | [Backup and restore](https://github.com/appwrite/helm-chart/blob/main/docs/backup-restore.md) | What to back up and how |
@@ -220,12 +220,12 @@ prints them with their comments.
 {{ template "appwrite.valuesTable" (dict "rows" .Values "title" "API, console, realtime and geo" "description" "" "prefixes" (list "api" "console" "realtime" "geo")) }}
 {{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Workers and tasks" "description" "" "prefixes" (list "workers" "tasks")) }}
 {{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Functions and Sites" "description" "The build orchestrator and the executor." "prefixes" (list "compute")) }}
-{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Optional components" "description" "" "prefixes" (list "browser" "assistant" "autogravity" "embedding" "mqtt")) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Optional components" "description" "" "prefixes" (list "browser" "autogravity" "embedding" "mqtt")) }}
 {{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Monitoring" "description" "Prometheus Operator objects for the datastores' metrics." "prefixes" (list "metrics")) }}
 {{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Network policies" "description" "" "prefixes" (list "networkPolicy")) }}
 {{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Migrations and tests" "description" "" "prefixes" (list "migrations" "tests")) }}
 {{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Global settings and defaults" "description" "Image, security contexts, scheduling defaults, names, labels and extra objects." "prefixes" (list "global" "image" "defaults" "podSecurityContext" "containerSecurityContext" "serviceAccount" "nameOverride" "fullnameOverride" "commonLabels" "commonAnnotations" "extraObjects")) }}
-{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Other values" "description" "" "prefixes" (list "appwrite" "ingress" "httpRoute" "redis" "clickhouse" "database" "documentsDb" "vectorsDb" "storage" "smtp" "api" "console" "realtime" "geo" "workers" "tasks" "compute" "browser" "assistant" "autogravity" "embedding" "mqtt" "metrics" "networkPolicy" "migrations" "tests" "global" "image" "defaults" "podSecurityContext" "containerSecurityContext" "serviceAccount" "nameOverride" "fullnameOverride" "commonLabels" "commonAnnotations" "extraObjects") "exclude" true) }}
+{{ template "appwrite.valuesTable" (dict "rows" .Values "title" "Other values" "description" "" "prefixes" (list "appwrite" "ingress" "httpRoute" "redis" "clickhouse" "database" "documentsDb" "vectorsDb" "storage" "smtp" "api" "console" "realtime" "geo" "workers" "tasks" "compute" "browser" "autogravity" "embedding" "mqtt" "metrics" "networkPolicy" "migrations" "tests" "global" "image" "defaults" "podSecurityContext" "containerSecurityContext" "serviceAccount" "nameOverride" "fullnameOverride" "commonLabels" "commonAnnotations" "extraObjects") "exclude" true) }}
 
 ## License
 

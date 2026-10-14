@@ -50,7 +50,7 @@ Every component has a ClusterIP Service named `<fullname>-<component>`,
 except workers and tasks, which nothing connects to. The API, console,
 realtime and geo Services listen on port 80; the others use the container
 port. The datastores also get a headless Service for their StatefulSet.
-Optional components such as the browser, assistant and MQTT broker are
+Optional components such as the browser and the MQTT broker are
 described in [optional-components.md](optional-components.md).
 
 The API and the builds worker submit builds to the orchestrator, and the API

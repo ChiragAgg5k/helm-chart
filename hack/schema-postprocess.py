@@ -169,6 +169,21 @@ def specific(schema):
         at(schema, "appwrite", key)["pattern"] = HOSTNAME
 
 
+# Removed or renamed keys (dotted paths). The schema accepts them so a render
+# gets as far as templates/_deprecations.tpl, which fails with what to do
+# instead. Keep each for at least one minor release (CONTRIBUTING.md).
+DEPRECATED = (
+    "assistant",
+)
+
+
+def deprecated(schema):
+    for path in DEPRECATED:
+        *parents, key = path.split(".")
+        node = at(schema, *parents) if parents else schema
+        node["properties"][key] = {"description": f"No longer supported: setting {path} fails with what to do instead."}
+
+
 def main(path):
     with open(path) as f:
         schema = json.load(f)
@@ -187,6 +202,7 @@ def main(path):
         parent[keys[-1]] = dict(replacement, description=parent[keys[-1]].get("description", ""))
     constrain(schema)
     specific(schema)
+    deprecated(schema)
     with open(path, "w") as f:
         json.dump(schema, f, indent=2)
         f.write("\n")

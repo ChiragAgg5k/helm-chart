@@ -223,7 +223,6 @@
         "docker.io/appwrite/new",
         "docker.io/appwrite/geo",
         "docker.io/appwrite/browser",
-        "docker.io/appwrite/assistant",
         "docker.io/appwrite/embedding",
         "docker.io/appwrite/postgres",
         "ghcr.io/appwrite/autogravity",

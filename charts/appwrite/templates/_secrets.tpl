@@ -36,8 +36,7 @@ One with a secretName lives in that Secret; the chart stores the others.
   (list $v.vectorsDb.password "vectorsdb-password" $v.vectorsDb.enabled false)
   (list $v.storage.s3.accessKeyId "s3-access-key" $s3 false)
   (list $v.storage.s3.secretAccessKey "s3-secret-key" $s3 false)
-  (list $v.smtp.password "smtp-password" true false)
-  (list $v.assistant.apiKey "openai-api-key" $v.assistant.enabled false) }}
+  (list $v.smtp.password "smtp-password" true false) }}
 {{- range $credentials }}
 {{- $ref := index . 0 }}
 {{- $key := index . 1 }}

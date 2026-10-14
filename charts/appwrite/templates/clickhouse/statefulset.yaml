@@ -5,10 +5,12 @@
   (dict "name" "CLICKHOUSE_DB" "value" $c.database)
   (dict "name" "CLICKHOUSE_USER" "value" $c.username)
   (dict "name" "CLICKHOUSE_PASSWORD" "valueFrom" (include "appwrite.credential.valueFrom" (dict "root" . "ref" $c.password "chartKey" "clickhouse-password") | fromYaml))
-  (dict "name" "CLICKHOUSE_SKIP_USER_SETUP" "value" "1") }}
+  (dict "name" "CLICKHOUSE_SKIP_USER_SETUP" "value" "1")
+  (dict "name" "CLICKHOUSE_ALWAYS_RUN_INITDB_SCRIPTS" "value" "1") }}
 {{- $handler := dict "httpGet" (dict "path" "/ping" "port" "http") }}
 {{- $mounts := list
   (dict "name" "config" "mountPath" "/etc/clickhouse-server/config.d/appwrite-system-log-ttl.xml" "subPath" "system-log-ttl.xml")
+  (dict "name" "config" "mountPath" "/docker-entrypoint-initdb.d/appwrite-init.sh" "subPath" "init.sh")
   (dict "name" "config" "mountPath" "/etc/clickhouse-server/config.d/appwrite-logging.xml" "subPath" "logging.xml")
   (dict "name" "config" "mountPath" "/etc/clickhouse-server/users.d/appwrite.xml" "subPath" "users.xml") }}
 {{- $ports := list (dict "name" "http" "containerPort" 8123 "protocol" "TCP") (dict "name" "native" "containerPort" 9000 "protocol" "TCP") }}

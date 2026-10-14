@@ -169,8 +169,44 @@ redirect HTTP to HTTPS at the edge for unknown hostnames, keeping
 `/.well-known/acme-challenge/` on HTTP for custom-domain certificates.
 
 Appwrite takes the client IP from the headers in `_APP_TRUSTED_HEADERS`
-(default `x-forwarded-for`). Make sure your controller sets it, and that
-clients can't spoof it.
+(default `x-forwarded-for`), but only on connections from a proxy in
+`_APP_TRUSTED_PROXIES`, and then the rightmost address in the header that
+isn't itself a trusted proxy. The default trusts loopback, the RFC 1918
+ranges and `100.64.0.0/10`, which covers the pod network of most clusters, so
+the ingress controller or Gateway in front of Appwrite is trusted as it is.
+Set your own list through `appwrite.config` when pods get other addresses
+(IPv6 or dual-stack clusters), or when a load balancer or CDN in front of the
+controller adds its own address to the header:
+
+```yaml
+appwrite:
+  config:
+    _APP_TRUSTED_PROXIES: "10.0.0.0/8,fd00::/8"   # replaces the default
+```
+
+Make sure your controller sets the header, and that clients can't spoof it.
+
+### Requests to private addresses
+
+Appwrite refuses to fetch a URL that resolves to a private or reserved
+address: OAuth2 and OIDC providers, webhooks, messaging webhooks, migration
+sources and avatar URLs. That includes every pod and Service in the cluster.
+To use an identity provider or webhook receiver that runs in the cluster,
+list its addresses (IPs or CIDRs, comma-separated) in
+`_APP_ALLOWED_INTERNAL_ADDRESSES`, for example your Service range:
+
+```yaml
+appwrite:
+  config:
+    _APP_ALLOWED_INTERNAL_ADDRESSES: "10.96.0.0/12"
+```
+
+Migrations from this Appwrite itself are allowed already
+(`_APP_MIGRATION_HOST`). Before fetching a migration source or an avatar
+URL, Appwrite also checks its host through the resolvers in
+`_APP_DNS_EXTERNAL` (by default `_APP_DNS`, `8.8.8.8`) rather than the
+cluster's DNS. With `networkPolicy.egress.enabled`, that resolver needs the
+same egress rule as custom domains below.
 
 ### cert-manager
 
@@ -244,9 +280,11 @@ httpRoute:
 ```
 
 Step 1 also needs DNS: Appwrite resolves the domain through `_APP_DNS`
-(default `8.8.8.8`). With `networkPolicy.egress.enabled`, allow that resolver
-on port 53 in `networkPolicy.egress.extraRules`, or point `_APP_DNS` at a
-resolver the policy already allows (through `appwrite.config`):
+(default `8.8.8.8`), and the hosts of migration sources and avatar URLs
+through `_APP_DNS_EXTERNAL` (by default the same). With
+`networkPolicy.egress.enabled`, allow that resolver on port 53 in
+`networkPolicy.egress.extraRules`, or point both at a resolver the policy
+already allows (through `appwrite.config`):
 
 ```yaml
 networkPolicy:

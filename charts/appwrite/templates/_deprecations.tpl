@@ -6,7 +6,7 @@ permissive stub for the old key in values.schema.json, for at least one
 minor release (CONTRIBUTING.md, "Deprecating a value").
 */}}
 {{- define "appwrite.deprecations.renamed" -}}
-{{- dict | toYaml }}
+assistant: Appwrite removed the assistant in 2.4.0. Delete the assistant block from your values.
 {{- end }}
 
 {{/*

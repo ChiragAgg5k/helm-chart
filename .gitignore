@@ -12,3 +12,4 @@ charts/*/tests/__snapshot__/*.tmp
 .idea/
 .vscode/
 .variables.php
+.env-defaults.yaml

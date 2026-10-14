@@ -5,8 +5,8 @@ keeping all data.
 
 Before you start:
 
-- **Same Appwrite version.** The chart deploys Appwrite 2.3.0. Upgrade the
-  Docker install to 2.3.0 first, including its data migration. A Docker
+- **Same Appwrite version.** The chart deploys Appwrite 2.5.0. Upgrade the
+  Docker install to 2.5.0 first, including its data migration. A Docker
   install on 2.2.0 can also move as it is: install the chart with
   `--set image.tag=2.2.0` in step 3 and drop it in step 5, which then runs
   the migration; give that upgrade a `--timeout` long enough for it
@@ -81,7 +81,6 @@ only carry over what you changed. Most variables have a value of their own:
 | `_APP_DB_SCHEMA` | `database.name`, built-in or external. Keep the same name (default `appwrite`): it's also the name of the schema inside the dump. |
 | `_APP_FUNCTIONS_RUNTIMES`, `_APP_SITES_RUNTIMES` | `compute.functionsRuntimes`, `compute.sitesRuntimes` (lists) |
 | `_APP_DOCKER_HUB_USERNAME`, `_APP_DOCKER_HUB_PASSWORD` | `OPR_EXECUTOR_DOCKER_HUB_USERNAME` and `_PASSWORD` in `compute.executor.extraEnv` ([executor.md](executor.md#registries)) |
-| `_APP_ASSISTANT_OPENAI_API_KEY` | `assistant.enabled` and `assistant.apiKey` ([optional-components.md](optional-components.md#assistant)) |
 | `_APP_DOCUMENTSDB`, `_APP_VECTORSDB` and their `_APP_DB_*` variables | `documentsDb.*`, `vectorsDb.*` ([external-databases.md](external-databases.md#optional-databases)) |
 | OAuth, Git (`_APP_VCS_*`), SMS and other secrets, `_APP_LOGGING_CONFIG` | `appwrite.secretConfig` or `appwrite.extraEnvFrom` ([integrations.md](integrations.md)) |
 | other settings you changed: retention, GraphQL limits, function timeouts and sizes, ... | `appwrite.config` |

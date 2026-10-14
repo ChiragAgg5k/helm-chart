@@ -12,7 +12,7 @@ configmap-env.yaml so it also runs under `helm template`.
 {{- $errors = append $errors "appwrite.certificatesEmail is required: the certificates worker refuses to start without it." }}
 {{- end }}
 {{- $hasValue := dict }}
-{{- range $name, $ref := dict "database.password" $v.database.password "redis.password" $v.redis.password "clickhouse.password" $v.clickhouse.password "documentsDb.password" $v.documentsDb.password "vectorsDb.password" $v.vectorsDb.password "smtp.password" $v.smtp.password "storage.s3.accessKeyId" $v.storage.s3.accessKeyId "storage.s3.secretAccessKey" $v.storage.s3.secretAccessKey "assistant.apiKey" $v.assistant.apiKey }}
+{{- range $name, $ref := dict "database.password" $v.database.password "redis.password" $v.redis.password "clickhouse.password" $v.clickhouse.password "documentsDb.password" $v.documentsDb.password "vectorsDb.password" $v.vectorsDb.password "smtp.password" $v.smtp.password "storage.s3.accessKeyId" $v.storage.s3.accessKeyId "storage.s3.secretAccessKey" $v.storage.s3.secretAccessKey }}
 {{- $_ := set $hasValue $name (or $ref.value $ref.secretName) }}
 {{- if and $ref.secretName (not $ref.secretKey) }}
 {{- $errors = append $errors (printf "%s.secretKey is required with %s.secretName: name the key in the Secret." $name $name) }}
@@ -124,9 +124,6 @@ configmap-env.yaml so it also runs under `helm template`.
 {{- if ne $storage.device "s3" }}
 {{- $errors = append $errors "compute.enabled needs storage.device=s3: builds and the executor exchange code and build output through object storage." }}
 {{- end }}
-{{- end }}
-{{- if and $v.assistant.enabled (not (get $hasValue "assistant.apiKey")) }}
-{{- $errors = append $errors "assistant.enabled needs assistant.apiKey: a value or a secretName." }}
 {{- end }}
 {{- if and $v.mqtt.enabled $v.redis.username }}
 {{- $errors = append $errors "mqtt.enabled doesn't work with redis.username: Appwrite's MQTT server ignores Redis ACL users. Use the default user." }}

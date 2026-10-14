@@ -1,6 +1,6 @@
 # Appwrite Helm chart
 
-![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.3.0](https://img.shields.io/badge/AppVersion-2.3.0-informational?style=flat-square)
+![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.5.0](https://img.shields.io/badge/AppVersion-2.5.0-informational?style=flat-square)
 
 Appwrite, the open-source backend platform, on Kubernetes. Deploys the API, console, realtime, workers and schedulers with optional built-in PostgreSQL, Redis and ClickHouse.
 
@@ -164,7 +164,7 @@ See the [architecture guide](https://github.com/appwrite/helm-chart/blob/main/do
 - **Highly available datastores.** The built-in ones are single replicas. Use
   managed services or operators in production
   ([guide](https://github.com/appwrite/helm-chart/blob/main/docs/external-databases.md)).
-- **Metrics.** Appwrite 2.3.0 exposes no Prometheus metrics.
+- **Metrics.** Appwrite 2.5.0 exposes no Prometheus metrics.
 
 ## Documentation
 
@@ -178,7 +178,7 @@ See the [architecture guide](https://github.com/appwrite/helm-chart/blob/main/do
 | [Storage](https://github.com/appwrite/helm-chart/blob/main/docs/storage.md) | Volumes, ReadWriteMany, S3, antivirus |
 | [Email, Git and other integrations](https://github.com/appwrite/helm-chart/blob/main/docs/integrations.md) | SMTP, GitHub App, console sign-in, SMS, Sentry |
 | [Functions and Sites](https://github.com/appwrite/helm-chart/blob/main/docs/executor.md) | Builds as Jobs and the executor on Docker-in-Docker |
-| [Optional components](https://github.com/appwrite/helm-chart/blob/main/docs/optional-components.md) | Browser, assistant, autogravity, embedding, MQTT |
+| [Optional components](https://github.com/appwrite/helm-chart/blob/main/docs/optional-components.md) | Browser, autogravity, embedding, MQTT |
 | [Security](https://github.com/appwrite/helm-chart/blob/main/docs/security.md) | Pod security, credentials, NetworkPolicies, signatures |
 | [Upgrading](https://github.com/appwrite/helm-chart/blob/main/docs/upgrading.md) | Versions, migrations, rollbacks |
 | [Backup and restore](https://github.com/appwrite/helm-chart/blob/main/docs/backup-restore.md) | What to back up and how |
@@ -553,7 +553,7 @@ The SMTP server Appwrite sends mail through.
 | console.autoscaling.targetMemoryUtilizationPercentage | string | `""` | Target average memory utilisation, in percent. Empty disables the metric. |
 | console.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
 | console.enabled | bool | `true` | Deploy the console. |
-| console.env | object | `{"APPWRITE_ENDPOINT_SAME_ORIGIN":"true","VITE_CONSOLE_PROFILE":"self-hosted","VITE_GROWTH_ENDPOINT":"https://growth.appwrite.io/v1"}` | Environment variables for the console, as a map. |
+| console.env | object | `{"APPWRITE_ENDPOINT_SAME_ORIGIN":"true","VITE_CONSOLE_PROFILE":"self-hosted"}` | Environment variables for the console, as a map. |
 | console.extraContainers | list | `[]` | Extra sidecar containers. |
 | console.extraEnv | list | `[]` | Extra environment variables, as a list of EnvVar objects. |
 | console.extraInitContainers | list | `[]` | Extra init containers. |
@@ -563,7 +563,7 @@ The SMTP server Appwrite sends mail through.
 | console.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | console.image.registry | string | `"docker.io"` | Image registry. |
 | console.image.repository | string | `"appwrite/new"` | Image repository. |
-| console.image.tag | string | `"1.1.159-self-hosted"` | Image tag. Pinned to the console that ships with the chart's appVersion. |
+| console.image.tag | string | `"1.2.74-self-hosted"` | Image tag. Pinned to the console that ships with the chart's appVersion. |
 | console.livenessProbe.enabled | bool | `true` | Enable the liveness probe. |
 | console.livenessProbe.failureThreshold | int | `3` | Consecutive failures before the probe counts as failed. |
 | console.livenessProbe.periodSeconds | int | `20` | Seconds between probes. |
@@ -606,7 +606,7 @@ The SMTP server Appwrite sends mail through.
 | geo.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | geo.image.registry | string | `"docker.io"` | Image registry. |
 | geo.image.repository | string | `"appwrite/geo"` | Image repository. |
-| geo.image.tag | string | `"0.3.1"` | Image tag. |
+| geo.image.tag | string | `"0.3.2"` | Image tag. |
 | geo.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
 | geo.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
 | geo.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
@@ -866,7 +866,7 @@ The build orchestrator and the executor.
 | compute.executor.image.digest | string | `""` | Image digest. |
 | compute.executor.image.registry | string | `"docker.io"` | Image registry. The executor image is pulled by the Docker daemon in the pod, not by the kubelet, so image pull secrets don't apply to it. |
 | compute.executor.image.repository | string | `"openruntimes/executor"` | Image repository. |
-| compute.executor.image.tag | string | `"0.29.0"` | Image tag. |
+| compute.executor.image.tag | string | `"1.1.2"` | Image tag. |
 | compute.executor.images | list | `[]` | Runtime images to pull when the executor starts (`OPR_EXECUTOR_IMAGES`). Empty derives them from `functionsRuntimes` and `sitesRuntimes`, e.g. `node-22` becomes `openruntimes/node:v5-22`; with both of those empty too, nothing is pulled ahead of the first executions. |
 | compute.executor.inactiveThreshold | int | `60` | Seconds a runtime may stay idle before it's removed (`OPR_EXECUTOR_INACTIVE_THRESHOLD`). The executor removes idle runtimes in its maintenance pass, which the chart runs hourly (`OPR_EXECUTOR_MAINTENANCE_INTERVAL`), so a runtime can stay up to an hour longer. |
 | compute.executor.namespace | string | `""` | Namespace of the executor. Defaults to `<release namespace>-executor`. Use a different one per release when several releases share a namespace. |
@@ -884,7 +884,7 @@ The build orchestrator and the executor.
 | compute.executor.terminationGracePeriodSeconds | int | `60` | Seconds to wait on shutdown. |
 | compute.executor.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
 | compute.executor.topologySpreadConstraints | list | `[]` | Topology spread constraints. Empty inherits `defaults.topologySpreadConstraints`, or spreads replicas across nodes. |
-| compute.functionsRuntimes | list | `[]` | Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (node-16.0, php-8.0, python-3.9, ruby-3.0). |
+| compute.functionsRuntimes | list | `[]` | Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (node-16.0, node-22, php-8.0, python-3.9, ruby-3.0). |
 | compute.orchestrator.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
 | compute.orchestrator.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
 | compute.orchestrator.image.digest | string | `""` | Image digest. |
@@ -910,30 +910,6 @@ The build orchestrator and the executor.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| assistant.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
-| assistant.apiKey.secretKey | string | `"openai-api-key"` | Key in the Secret. |
-| assistant.apiKey.secretName | string | `""` | Existing Secret holding the OpenAI API key. Takes precedence over `value`. |
-| assistant.apiKey.value | string | `""` | OpenAI API key (`_APP_ASSISTANT_OPENAI_API_KEY`), set inline. Stored in the chart's Secret. |
-| assistant.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
-| assistant.enabled | bool | `false` | Deploy the assistant. |
-| assistant.extraContainers | list | `[]` | Extra sidecar containers. |
-| assistant.extraEnv | list | `[]` | Extra environment variables, as a list of EnvVar objects. |
-| assistant.extraInitContainers | list | `[]` | Extra init containers. |
-| assistant.extraVolumeMounts | list | `[]` | Extra volume mounts for the main container. |
-| assistant.extraVolumes | list | `[]` | Extra volumes. |
-| assistant.image.digest | string | `""` | Image digest. |
-| assistant.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
-| assistant.image.registry | string | `"docker.io"` | Image registry. |
-| assistant.image.repository | string | `"appwrite/assistant"` | Image repository. |
-| assistant.image.tag | string | `"0.8.4"` | Image tag. |
-| assistant.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
-| assistant.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
-| assistant.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
-| assistant.podSecurityContext | object | `{"fsGroup":1000,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod security context. |
-| assistant.priorityClassName | string | `""` | Priority class. Empty inherits `defaults.priorityClassName`. |
-| assistant.resources | object | `{"limits":{"memory":"512Mi"},"requests":{"cpu":"20m","memory":"128Mi"}}` | Resource requests and limits. |
-| assistant.terminationGracePeriodSeconds | int | `30` | Seconds to wait on shutdown. |
-| assistant.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
 | autogravity.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
 | autogravity.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
 | autogravity.enabled | bool | `false` | Deploy autogravity. |
@@ -968,7 +944,7 @@ The build orchestrator and the executor.
 | browser.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | browser.image.registry | string | `"docker.io"` | Image registry. |
 | browser.image.repository | string | `"appwrite/browser"` | Image repository. |
-| browser.image.tag | string | `"0.3.4"` | Image tag. |
+| browser.image.tag | string | `"0.3.6"` | Image tag. |
 | browser.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
 | browser.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
 | browser.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
@@ -1046,9 +1022,9 @@ Prometheus Operator objects for the datastores' metrics.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | networkPolicy.egress.dns | list | `[{"namespaceSelector":{},"podSelector":{"matchLabels":{"k8s-app":"kube-dns"}}}]` | DNS servers (NetworkPolicyPeer) allowed on port 53 wherever egress is restricted: here, for the browser, and for the executor and build Jobs, whose policies are on by default with compute. For NodeLocal DNSCache, add `{ipBlock: {cidr: 169.254.20.10/32}}`. DNS on another port (OpenShift: 5353) needs rules in `extraRules`, `compute.executor.networkPolicy.extraEgress` and `compute.builds.networkPolicy.extraEgress`. |
-| networkPolicy.egress.enabled | bool | `false` | Restrict egress to DNS, pods of this release and `extraRules` (needs `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and the DNS server it verifies custom domains against (`_APP_DNS`, 8.8.8.8). With compute, the orchestrator also needs the Kubernetes API. Allow what you use in `extraRules`; the executor is allowed already. |
+| networkPolicy.egress.enabled | bool | `false` | Restrict egress to DNS, pods of this release and `extraRules` (needs `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and the DNS server it verifies custom domains, migration sources and avatar URLs against (`_APP_DNS` and `_APP_DNS_EXTERNAL`, 8.8.8.8). With compute, the orchestrator also needs the Kubernetes API. Allow what you use in `extraRules`; the executor is allowed already. |
 | networkPolicy.egress.extraRules | list | `[]` | Extra egress rules (NetworkPolicyEgressRule) when egress is restricted. |
-| networkPolicy.enabled | bool | `false` | Create NetworkPolicies in the release namespace. The built-in datastores then accept only Appwrite pods of this release, the internal services (geo, browser, assistant, autogravity, embedding) only pods of this release, and workers and tasks no incoming traffic. Off by default: any pod in the cluster can reach the built-in PostgreSQL, Redis and ClickHouse, which only their passwords protect. Policies only take effect with a CNI that enforces them. |
+| networkPolicy.enabled | bool | `false` | Create NetworkPolicies in the release namespace. The built-in datastores then accept only Appwrite pods of this release, the internal services (geo, browser, autogravity, embedding) only pods of this release, and workers and tasks no incoming traffic. Off by default: any pod in the cluster can reach the built-in PostgreSQL, Redis and ClickHouse, which only their passwords protect. Policies only take effect with a CNI that enforces them. |
 | networkPolicy.ingress.from | list | `[]` | Sources (NetworkPolicyPeer) allowed to reach the API, console, realtime and MQTT, typically your ingress controller or Gateway. Empty allows any source. Pods of this release can always reach the API, console and realtime. |
 | networkPolicy.metrics.from | list | `[]` | Sources (NetworkPolicyPeer), typically Prometheus, allowed to scrape the datastores' metrics ports (`<service>.builtin.metrics.enabled`). Empty allows none. |
 
