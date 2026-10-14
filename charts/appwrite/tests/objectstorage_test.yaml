@@ -150,3 +150,14 @@ tests:
                   matchExpressions:
                     - {key: app.kubernetes.io/component, operator: In, values: [seaweedfs]}
             ports: [{port: 8333, protocol: TCP}]
+
+  - it: refuses a StatefulSet name its pods' labels can't hold, with only the store built in
+    template: templates/configmap-env.yaml
+    set:
+      fullnameOverride: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      database.mode: external
+      redis.mode: external
+      clickhouse.mode: external
+    asserts:
+      - failedTemplate:
+          errorPattern: StatefulSet name "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-seaweedfs" is longer than 52 characters

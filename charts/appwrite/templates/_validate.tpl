@@ -141,9 +141,10 @@ configmap-env.yaml so it also runs under `helm template`.
 {{- if and (eq $v.database.mode "builtin") $v.database.builtin.maxConnections (lt (int $v.database.builtin.maxConnections) (int $v.database.connectionsMax)) }}
 {{- $errors = append $errors (printf "database.builtin.maxConnections (%v) is below database.connectionsMax (%v): Appwrite would open more connections than PostgreSQL accepts." $v.database.builtin.maxConnections $v.database.connectionsMax) }}
 {{- end }}
-{{- range $store, $service := dict "postgresql" "database" "redis" "redis" "clickhouse" "clickhouse" }}
+{{- $statefulSets := dict "postgresql" (eq $v.database.mode "builtin") "redis" (eq $v.redis.mode "builtin") "clickhouse" (eq $v.clickhouse.mode "builtin") "seaweedfs" (include "appwrite.s3.builtin" . | eq "true") }}
+{{- range $store, $builtin := $statefulSets }}
 {{- $name := include "appwrite.componentName" (dict "root" $ "component" $store) }}
-{{- if and (eq (get $v $service).mode "builtin") (gt (len $name) 52) }}
+{{- if and $builtin (gt (len $name) 52) }}
 {{- $errors = append $errors (printf "StatefulSet name %q is longer than 52 characters, which breaks its pods' controller-revision-hash label: use a shorter release name or fullnameOverride." $name) }}
 {{- end }}
 {{- end }}
