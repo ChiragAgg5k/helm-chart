@@ -80,8 +80,14 @@ newest() {
 
 escape() { sed 's/[][\.*^$+?(){}|/]/\\&/g' <<<"$1"; }
 
+# Read before the loop rather than through process substitution, whose exit
+# status set -e doesn't see: a values.yaml yq can't parse must fail the run.
+images=$(yq -r '.. | select(tag == "!!map" and has("registry") and has("repository") and .tag != "")
+  | [(path | map(tostring) | join(".")), .registry, .repository, .tag] | @tsv' "$VALUES")
+
 changed=0
 while IFS=$'\t' read -r path registry repository tag; do
+  [[ -n "$path" ]] || continue # the here-string's line when there are no images
   if [[ "$all" == false ]] && grep -qx "${registry}/${repository}" <<<"$appwrite_group"; then
     printf '  %-45s %s (follows Appwrite %s, --all to update)\n' "${registry}/${repository}" "$tag" \
       "$(yq '.appVersion' "$CHART/Chart.yaml")"
@@ -106,8 +112,7 @@ while IFS=$'\t' read -r path registry repository tag; do
       { print }
     ' "$VALUES" > "$VALUES.tmp" && mv "$VALUES.tmp" "$VALUES"
   fi
-done < <(yq -r '.. | select(tag == "!!map" and has("registry") and has("repository") and .tag != "")
-  | [(path | map(tostring) | join(".")), .registry, .repository, .tag] | @tsv' "$VALUES")
+done <<<"$images"
 
 if [[ "$changed" -gt 0 && "$dry_run" == false ]]; then
   "$(dirname "$0")/chart-images.sh"
