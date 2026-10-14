@@ -9,6 +9,7 @@ the chart upgrades Appwrite. You can pin a different Appwrite version with
 | Chart | Appwrite |
 | --- | --- |
 | 1.0.0 | 2.3.0 |
+| 2.0.0 | 2.5.0 |
 
 The [changelog](../CHANGELOG.md) lists what changed in each chart version,
 and [version notes](#version-notes) what you have to do about it.
@@ -180,6 +181,83 @@ first. Each entry says what changed, what to do, and shows the values before
 and after. A release without an entry needs nothing beyond `helm upgrade`.
 When you skip versions, apply the entries of every version in between,
 oldest first.
+
+### To 2.0.0
+
+Appwrite 2.5.0, with Functions and Sites on by default. The data migration
+runs (2.3.0 to 2.5.0 is one step), so back up first.
+
+**Decide about storage before you upgrade.** 2.0.0 stores files in the
+built-in object storage and runs Functions and Sites by default. An install
+that took 1.0.0's defaults keeps its files on the `/storage` volume, where
+Appwrite would no longer look. To keep 1.0.0's behaviour, set:
+
+```yaml
+storage:
+  device: local
+compute:
+  enabled: false
+```
+
+An install that holds no files yet can take the new defaults as they are.
+Moving files from the volume into a bucket is a migration of its own (the
+paths Appwrite stores change with the device), so plan it separately.
+
+**Functions and Sites run a privileged pod.** With the defaults, the chart
+creates the namespaces `<release>-builds` and `<release>-executor` and runs
+the executor in the second as a privileged pod. Where privileged pods aren't
+allowed, set `compute.enabled: false`
+([executor.md](executor.md#without-a-privileged-container) has the Sysbox
+alternative).
+
+**Your own S3 store:** its settings moved under `storage.s3.external`, with
+`storage.s3.mode: external`. Before:
+
+```yaml
+storage:
+  device: s3
+  s3:
+    endpoint: https://s3.example.com
+    region: us-east-1
+    bucket: appwrite
+```
+
+After:
+
+```yaml
+storage:
+  device: s3
+  s3:
+    mode: external
+    external:
+      endpoint: https://s3.example.com
+      region: us-east-1
+    bucket: appwrite
+```
+
+When the S3 keys come from your own Secret, Functions and Sites also need
+the executor's Secret (`compute.executor.existingSecret`,
+[executor.md](executor.md#existing-secrets)); otherwise set
+`compute.enabled: false`. The render fails with what's missing.
+
+**The assistant is gone:** Appwrite removed it in 2.4.0. Delete the
+`assistant` block from your values.
+
+**What Appwrite 2.4.0 and 2.5.0 change** for self-hosters (release notes:
+[2.4.0](https://github.com/appwrite/appwrite/releases/tag/2.4.0),
+[2.5.0](https://github.com/appwrite/appwrite/releases/tag/2.5.0)):
+
+- Client IPs come from `X-Forwarded-For` only behind a trusted proxy
+  (`_APP_TRUSTED_PROXIES`). The default covers most pod networks; IPv6 pod
+  networks or a CDN in front of the controller need it set
+  ([networking.md](networking.md#tls-and-forcehttps)).
+- OAuth2 and OIDC providers, webhooks and migration sources on private
+  addresses are refused unless listed in `_APP_ALLOWED_INTERNAL_ADDRESSES`
+  ([networking.md](networking.md#requests-to-private-addresses)).
+- GitHub deployments need `_APP_VCS_GITHUB_WEBHOOK_SECRET`
+  ([integrations.md](integrations.md)).
+- Sign-ins in progress during the upgrade fail once, and function templates
+  need `node-18.0` or later.
 
 ### To 1.0.0
 
