@@ -458,7 +458,7 @@ redis:
       # with a Valkey tag (e.g. `8-alpine`).
       repository: library/redis
       # -- Image tag.
-      tag: 7.4.7-alpine
+      tag: 7.4.11-alpine
       # -- Image digest.
       digest: ""
       # -- Image pull policy.
@@ -577,7 +577,7 @@ clickhouse:
       # -- Image repository.
       repository: clickhouse/clickhouse-server
       # -- Image tag.
-      tag: 26.4.3-alpine
+      tag: 26.4.5-alpine
       # -- Image digest.
       digest: ""
       # -- Image pull policy.
@@ -855,7 +855,7 @@ compute:
       # -- Image repository: the orchestrator's jobs service, with the Kubernetes backend.
       repository: open-runtimes/orchestrator/jobs-service
       # -- Image tag.
-      tag: 2.2.2
+      tag: 2.2.3
       # -- Image digest.
       digest: ""
       # -- Image pull policy.
@@ -911,7 +911,7 @@ compute:
       # -- Image repository of the sidecar that moves sources, outputs and caches for each build.
       repository: open-runtimes/orchestrator/job-sidecar
       # -- Image tag.
-      tag: 2.2.2
+      tag: 2.2.3
       # -- Image digest.
       digest: ""
     # -- Divides each build's CPU limit to get its CPU request

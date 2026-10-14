@@ -61,6 +61,10 @@ env-defaults: ## Regenerate files/env-defaults.yaml from Appwrite's variables.ph
 images: ## Sync the artifacthub.io/images annotation with values.yaml
 	hack/chart-images.sh
 
+.PHONY: update-images
+update-images: ## Bump every pinned image tag in values.yaml to the newest in its registry (ARGS="--dry-run --all")
+	hack/update-images.sh $(ARGS)
+
 .PHONY: generate
 generate: schema images docs ## Regenerate all generated files
 
