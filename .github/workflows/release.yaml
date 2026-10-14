@@ -137,8 +137,9 @@ jobs:
         env:
           REF: ${{ steps.chart.outputs.ref }}
           VERSION: ${{ steps.chart.outputs.version }}
-        # The GitHub release carries the exact archive in the registry.
-        run: helm pull "oci://${REF}" --version "${VERSION}" --destination "${RUNNER_TEMP}/release"
+        run: |
+          mkdir -p "${RUNNER_TEMP}/release"
+          helm pull "oci://${REF}" --version "${VERSION}" --destination "${RUNNER_TEMP}/release"
 
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
