@@ -122,7 +122,7 @@ configmap-env.yaml so it also runs under `helm template`.
 {{- $errors = append $errors "compute.executor.existingSecret is required when compute.secrets.existingSecret or an S3 secretName (storage.s3.accessKeyId, storage.s3.secretAccessKey) is set: the executor runs in another namespace and can't read them. Create a Secret there with the keys executor-secret, s3-access-key and s3-secret-key." }}
 {{- end }}
 {{- if ne $storage.device "s3" }}
-{{- $errors = append $errors "compute.enabled needs storage.device=s3: builds and the executor exchange code and build output through object storage." }}
+{{- $errors = append $errors "compute.enabled needs storage.device=s3: builds and the executor exchange code and build output through object storage. Keep the default (s3, with the built-in object store), or set compute.enabled=false to store files on the local volume without Functions and Sites." }}
 {{- end }}
 {{- end }}
 {{- if and $v.mqtt.enabled $v.redis.username }}

@@ -1213,7 +1213,7 @@
           "additionalProperties": false
         },
         "enabled": {
-          "description": "Enable Functions and Sites. Needs `storage.device: s3` and `compute.executor.privileged` (see docs/executor.md).",
+          "description": "Enable Functions and Sites. Needs `storage.device: s3`, and runs the executor as a privileged pod in a namespace of its own (see docs/executor.md). Set to false on clusters that forbid privileged pods.",
           "type": "boolean"
         },
         "executor": {
@@ -1379,7 +1379,7 @@
               "type": "string"
             },
             "privileged": {
-              "description": "Run the Docker daemon as a privileged container, which makes it root on its node. Required unless `runtimeClassName` names a runtime that runs Docker without it, such as Sysbox. Give the executor nodes of its own (`nodeSelector`, `tolerations`).",
+              "description": "Run the Docker daemon as a privileged container, which makes it root on its node. Required unless `runtimeClassName` names a runtime that runs Docker without it, such as Sysbox. For production, give the executor nodes of its own (`nodeSelector`, `tolerations`).",
               "type": "boolean"
             },
             "replicaCount": {
@@ -4120,7 +4120,7 @@
       "type": "object",
       "properties": {
         "device": {
-          "description": "Where Appwrite stores files (`_APP_STORAGE_DEVICE`).",
+          "description": "Where Appwrite stores files (`_APP_STORAGE_DEVICE`): `s3`, by default the built-in SeaweedFS (`storage.s3.mode`), or `local`, the `/storage` volume. Functions and Sites need `s3`.",
           "type": "string",
           "enum": [
             "local",

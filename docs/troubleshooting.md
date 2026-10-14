@@ -320,6 +320,24 @@ Deployments that stay `waiting`, builds that fail, executor pods that don't
 start, executions that time out: see
 [executor.md](executor.md#troubleshooting).
 
+### Deployments fail with an internal error
+
+Every deployment fails with "An internal error occurred while building", and
+creating a function or site from a template fails with a 500. Retrying then
+fails with a 409, "Domain is already used", because the first attempt already
+created the function and its domain. The API's log names the cause:
+
+```console
+kubectl -n appwrite logs deploy/appwrite-api | grep -i 'resolve host'
+```
+
+`Could not resolve host: orchestrator` (or `exc1`) means Functions and Sites
+are off (`compute.enabled: false`): Appwrite falls back to the Docker
+install's hostnames, which don't exist in the cluster, and the console offers
+Functions and Sites anyway. Turn compute on ([executor.md](executor.md)), or
+hide Functions and Sites in each project's settings (Settings → Services).
+Delete the functions the failed attempts left behind.
+
 ## FAQ
 
 ### Is it highly available?
@@ -340,11 +358,12 @@ failover. For high availability, use managed services or operators
 
 The open-runtimes executor runs each function and site in a container of its
 own, started by a Docker daemon inside the executor pod. That daemon needs a
-privileged container, which is root on its node. Functions and Sites are off
-by default, and the chart only runs the executor once you accept that with
-`compute.executor.privileged: true`. Give it nodes of its own
-([executor.md](executor.md#executor-isolation)). Builds don't need it: they
-run as ordinary Jobs.
+privileged container, which is root on its node. Functions and Sites are on
+by default, so a plain install runs one, in a namespace of its own. For
+production, give it nodes of its own
+([executor.md](executor.md#executor-isolation)); where privileged pods aren't
+allowed, set `compute.enabled: false`. Builds don't need it: they run as
+ordinary Jobs.
 
 The alternative is [Sysbox](https://github.com/nestybox/sysbox), which runs
 the daemon without `privileged`: install it on the executor's nodes and set
@@ -372,8 +391,9 @@ see [upgrading.md](upgrading.md#helm-3-to-helm-4).
 Appwrite's Docker Compose install runs everything on one server and is the
 simpler choice there. The chart runs the same images on Kubernetes: use it
 when you already run Kubernetes and want managed datastores, replicas across
-nodes, rolling upgrades or GitOps. Functions and Sites need more here: S3
-storage and a privileged executor ([executor.md](executor.md)). To move an
+nodes, rolling upgrades or GitOps. Functions and Sites run on a privileged
+executor here too, and on object storage, built-in or your own
+([executor.md](executor.md)). To move an
 existing Docker install, see
 [migrating-from-docker.md](migrating-from-docker.md).
 

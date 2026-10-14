@@ -14,10 +14,8 @@ The [changelog](../CHANGELOG.md) lists what changed in each chart version,
 and [version notes](#version-notes) what you have to do about it.
 
 What CI tests: a fresh install of the `appVersion`, and an upgrade from the
-Appwrite version of the previous chart release (2.3.0, installed with this
-chart through `image.tag`) to the `appVersion`, including the data
-migration. Upgrades from
-an earlier chart version aren't tested yet.
+published chart 1.0.0 (Appwrite 2.3.0) with default values, including the
+data migration.
 
 ## What happens during an upgrade
 

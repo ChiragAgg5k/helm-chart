@@ -1,10 +1,10 @@
-# Every optional component but embedding, used by the nightly workflow together
-# with the compute values hack/compute-plane.sh writes (S3 next to the cluster,
-# Functions and Sites). Also linted and rendered on its own like the other
+# Every optional component but embedding, with Functions and Sites on the
+# built-in object storage: the nightly workflow installs it and builds and
+# executes a function. Also linted and rendered on its own like the other
 # scenarios.
 #
-# CPU requests are cut down so everything fits on a single kind node on a
-# 2-vCPU GitHub-hosted runner, next to the control plane and Traefik.
+# CPU requests are cut down so everything fits on a single kind node, next to
+# the control plane and Traefik.
 appwrite:
   domain: appwrite.ci.local
   certificatesEmail: ci@example.com
@@ -83,6 +83,15 @@ compute:
     # Builds get an 8-CPU limit; the default overcommit requests 1 CPU,
     # which doesn't fit on the runner next to everything else.
     cpuOvercommit: 40
+  functionsRuntimes: [node-22]
+  sitesRuntimes: [static-1, node-22]
+  executor:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 3Gi
 migrations:
   mode: job
 networkPolicy:

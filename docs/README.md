@@ -27,7 +27,7 @@ others:
 | PostgreSQL | built-in StatefulSet | RDS, Cloud SQL, Azure, CloudNativePG; or MariaDB, MySQL, MongoDB | [External databases](external-databases.md#postgresql) |
 | Redis | built-in StatefulSet | ElastiCache, Memorystore, Azure Cache, Valkey | [External databases](external-databases.md#redis) |
 | ClickHouse | built-in StatefulSet | ClickHouse Cloud, Altinity operator | [External databases](external-databases.md#clickhouse) |
-| File storage | PersistentVolumeClaim | S3, R2, GCS, Spaces, MinIO, ... | [Storage](storage.md#s3) |
+| File storage, deployments and builds | built-in object storage (SeaweedFS) | S3, R2, GCS, Spaces, MinIO, ...; or a PersistentVolumeClaim | [Storage](storage.md#s3) |
 | Email | off | any SMTP server: SES, SendGrid, Postmark, ... | [Integrations](integrations.md#email-smtp) |
 | Git deployments, console sign-in, SMS, Sentry | off | GitHub, GitLab, Gitea, Bitbucket, Google, Twilio, ... | [Integrations](integrations.md) |
 | Antivirus | off | ClamAV | [Storage](storage.md#antivirus) |

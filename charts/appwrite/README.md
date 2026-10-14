@@ -16,9 +16,11 @@ Appwrite, the open-source backend platform, on Kubernetes. Deploys the API, cons
 - Ingress or Gateway API routes for the API, console, realtime, function and
   site previews and custom domains.
 - Worker topologies from one combined worker to one Deployment per queue.
-- Functions and Sites in the cluster: builds run as unprivileged Jobs in their
-  own namespace, executions on an executor with its own Docker-in-Docker
-  daemon in another namespace (a privileged pod you opt into).
+- Functions and Sites in the cluster, on by default: builds run as
+  unprivileged Jobs in their own namespace, executions on an executor with
+  its own Docker-in-Docker daemon in another namespace (a privileged pod; set
+  `compute.enabled=false` where that isn't allowed), on built-in S3-compatible
+  object storage.
 - Credentials generated once and kept, data migrations on upgrade, and guards
   against changing the encryption key or downgrading.
 
@@ -28,6 +30,8 @@ Appwrite, the open-source backend platform, on Kubernetes. Deploys the API, cons
 - Helm 4, or Helm 3.18 or later
 - An ingress controller or a Gateway API implementation. Appwrite serves the
   console and the API on one hostname and needs `/v1` routed to the API.
+- For Functions and Sites (on by default), a cluster that admits a privileged
+  pod in the executor's namespace, or `compute.enabled=false`.
 - For HTTPS: cert-manager, or certificates you provide
 
 ## Quick start
@@ -60,7 +64,7 @@ kubectl -n appwrite get secret appwrite -o jsonpath='{.data._APP_OPENSSL_KEY_V1}
 
 To try Appwrite on a laptop first, or for a step-by-step install, see
 [Getting started](https://github.com/appwrite/helm-chart/blob/main/docs/getting-started.md).
-To install a branch, or before the first release is on `ghcr.io`, use
+To install a branch, use
 `./charts/appwrite` from a clone in place of the `oci://` reference
 ([installing from source](https://github.com/appwrite/helm-chart/blob/main/docs/getting-started.md#installing-from-source)).
 
@@ -457,7 +461,7 @@ Where files go (the volume or S3), and the `/storage` volume.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| storage.device | string | `"local"` | Where Appwrite stores files (`_APP_STORAGE_DEVICE`). |
+| storage.device | string | `"s3"` | Where Appwrite stores files (`_APP_STORAGE_DEVICE`): `s3`, by default the built-in SeaweedFS (`storage.s3.mode`), or `local`, the `/storage` volume. Functions and Sites need `s3`. |
 | storage.limit | int | `30000000` | Maximum file size in bytes (`_APP_STORAGE_LIMIT`). |
 | storage.previewLimit | int | `20000000` | Maximum size in bytes of files Appwrite renders previews for (`_APP_STORAGE_PREVIEW_LIMIT`). |
 | storage.s3.accessKeyId.secretKey | string | `"s3-access-key"` | Key in the Secret. |
@@ -877,7 +881,7 @@ The build orchestrator and the executor.
 | compute.builds.sidecarImage.repository | string | `"open-runtimes/orchestrator/job-sidecar"` | Image repository of the sidecar that moves sources, outputs and caches for each build. |
 | compute.builds.sidecarImage.tag | string | `"2.2.3"` | Image tag. |
 | compute.builds.tolerations | list | `[]` | Tolerations for build pods. |
-| compute.enabled | bool | `false` | Enable Functions and Sites. Needs `storage.device: s3` and `compute.executor.privileged` (see docs/executor.md). |
+| compute.enabled | bool | `true` | Enable Functions and Sites. Needs `storage.device: s3`, and runs the executor as a privileged pod in a namespace of its own (see docs/executor.md). Set to false on clusters that forbid privileged pods. |
 | compute.executor.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
 | compute.executor.createNamespace | bool | `true` | Create the namespace, labelled for the `privileged` Pod Security Standard. Set to false to create it yourself. |
 | compute.executor.dind.addressPool | string | `"198.18.0.0/15"` | Addresses of the Docker daemon's networks, split into /24s: its bridge and the runtimes' network. They shadow anything the executor and runtimes would reach in the same range, so it must not overlap the S3 endpoint, the cluster or your networks. Docker's own default, 172.17.0.0/16 onwards, often does; this one is reserved for benchmarking (RFC 2544) and routed nowhere. |
@@ -904,7 +908,7 @@ The build orchestrator and the executor.
 | compute.executor.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
 | compute.executor.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
 | compute.executor.priorityClassName | string | `""` | Priority class. Empty inherits `defaults.priorityClassName`. |
-| compute.executor.privileged | bool | `false` | Run the Docker daemon as a privileged container, which makes it root on its node. Required unless `runtimeClassName` names a runtime that runs Docker without it, such as Sysbox. Give the executor nodes of its own (`nodeSelector`, `tolerations`). |
+| compute.executor.privileged | bool | `true` | Run the Docker daemon as a privileged container, which makes it root on its node. Required unless `runtimeClassName` names a runtime that runs Docker without it, such as Sysbox. For production, give the executor nodes of its own (`nodeSelector`, `tolerations`). |
 | compute.executor.replicaCount | int | `1` | Executor replicas. Each has its own Docker daemon: a runtime starts on the replica an execution reaches and stays there until it's idle. |
 | compute.executor.resources | object | `{"limits":{"memory":"4Gi"},"requests":{"cpu":"500m","memory":"1Gi"}}` | Resources of the Docker daemon container, which runs the executor and every runtime: size it for the executions you expect. |
 | compute.executor.runtimeClassName | string | `""` | RuntimeClass of executor pods, e.g. `sysbox-runc`. |

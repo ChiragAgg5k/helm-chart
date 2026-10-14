@@ -60,7 +60,7 @@ cluster. Without it, a database backup can't be read:
 kubectl -n appwrite get secret appwrite -o jsonpath='{.data._APP_OPENSSL_KEY_V1}' | base64 -d
 ```
 
-To install a branch, or before the first release is on `ghcr.io`, use
+To install a branch, use
 `./charts/appwrite` from a clone in place of the `oci://` reference
 ([installing from source](docs/getting-started.md#installing-from-source)).
 
@@ -88,7 +88,7 @@ Every guide is listed in [`docs/`](docs/README.md), and every example in
 | PostgreSQL | built-in StatefulSet | RDS, Cloud SQL, Azure, CloudNativePG; or MariaDB, MySQL, MongoDB | [External databases](docs/external-databases.md#postgresql) |
 | Redis | built-in StatefulSet | ElastiCache, Memorystore, Azure Cache, Valkey | [External databases](docs/external-databases.md#redis) |
 | ClickHouse | built-in StatefulSet | ClickHouse Cloud, Altinity operator | [External databases](docs/external-databases.md#clickhouse) |
-| File storage | PersistentVolumeClaim | S3, R2, GCS, Spaces, MinIO, ... | [Storage](docs/storage.md#s3) |
+| File storage, deployments and builds | built-in object storage (SeaweedFS) | S3, R2, GCS, Spaces, MinIO, ...; or a PersistentVolumeClaim | [Storage](docs/storage.md#s3) |
 | Email | off | any SMTP server: SES, SendGrid, Postmark, ... | [Integrations](docs/integrations.md#email-smtp) |
 | Git deployments, console sign-in, SMS, Sentry | off | GitHub, GitLab, Gitea, Bitbucket, Google, Twilio, ... | [Integrations](docs/integrations.md) |
 

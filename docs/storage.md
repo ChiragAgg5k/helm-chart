@@ -4,19 +4,23 @@ Appwrite stores files (bucket uploads, deployment code, build output,
 certificates) either on a volume under `/storage` or in S3-compatible object
 storage. `storage.device` picks one:
 
-| | `local` (default) | `s3` |
+| | `s3` (default) | `local` |
 | --- | --- | --- |
-| Files live on | a PersistentVolumeClaim | a bucket |
-| Spreading the API and workers across nodes | needs a ReadWriteMany volume | still needs a small ReadWriteMany volume ([why](#the-volume-with-s3)) |
-| [Functions and Sites](executor.md) | not supported | required |
-| [Antivirus](#antivirus) scanning | supported | not supported |
+| Files live on | a bucket: the [built-in object storage](#built-in-object-storage) or [your own](#your-own-s3-store) | a PersistentVolumeClaim |
+| Spreading the API and workers across nodes | still needs a small ReadWriteMany volume ([why](#the-volume-with-s3)) | needs a ReadWriteMany volume |
+| [Functions and Sites](executor.md) | required | not supported: set `compute.enabled: false` |
+| [Antivirus](#antivirus) scanning | not supported | supported |
 
 Choose before going live: changing `device` later doesn't move files that are
 already stored. They stay where they were written.
 
-## Local storage (default)
+## Local storage
+
+Files on the `/storage` volume, without Functions and Sites:
 
 ```yaml
+compute:
+  enabled: false
 storage:
   device: local
   volume:

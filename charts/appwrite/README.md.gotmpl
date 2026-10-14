@@ -16,9 +16,11 @@
 - Ingress or Gateway API routes for the API, console, realtime, function and
   site previews and custom domains.
 - Worker topologies from one combined worker to one Deployment per queue.
-- Functions and Sites in the cluster: builds run as unprivileged Jobs in their
-  own namespace, executions on an executor with its own Docker-in-Docker
-  daemon in another namespace (a privileged pod you opt into).
+- Functions and Sites in the cluster, on by default: builds run as
+  unprivileged Jobs in their own namespace, executions on an executor with
+  its own Docker-in-Docker daemon in another namespace (a privileged pod; set
+  `compute.enabled=false` where that isn't allowed), on built-in S3-compatible
+  object storage.
 - Credentials generated once and kept, data migrations on upgrade, and guards
   against changing the encryption key or downgrading.
 
@@ -28,6 +30,8 @@
 - Helm 4, or Helm 3.18 or later
 - An ingress controller or a Gateway API implementation. Appwrite serves the
   console and the API on one hostname and needs `/v1` routed to the API.
+- For Functions and Sites (on by default), a cluster that admits a privileged
+  pod in the executor's namespace, or `compute.enabled=false`.
 - For HTTPS: cert-manager, or certificates you provide
 
 ## Quick start
@@ -60,7 +64,7 @@ kubectl -n appwrite get secret appwrite -o jsonpath='{.data._APP_OPENSSL_KEY_V1}
 
 To try Appwrite on a laptop first, or for a step-by-step install, see
 [Getting started](https://github.com/appwrite/helm-chart/blob/main/docs/getting-started.md).
-To install a branch, or before the first release is on `ghcr.io`, use
+To install a branch, use
 `./charts/appwrite` from a clone in place of the `oci://` reference
 ([installing from source](https://github.com/appwrite/helm-chart/blob/main/docs/getting-started.md#installing-from-source)).
 

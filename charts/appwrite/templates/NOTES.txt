@@ -51,6 +51,7 @@ First steps
 {{- if (eq .Values.database.mode "builtin") }}{{ $builtin = append $builtin "PostgreSQL" }}{{ end }}
 {{- if (eq .Values.redis.mode "builtin") }}{{ $builtin = append $builtin "Redis" }}{{ end }}
 {{- if (eq .Values.clickhouse.mode "builtin") }}{{ $builtin = append $builtin "ClickHouse" }}{{ end }}
+{{- if include "appwrite.s3.builtin" . }}{{ $builtin = append $builtin "SeaweedFS (object storage)" }}{{ end }}
 {{- with $builtin }}
 
 The built-in {{ if eq (len .) 1 }}{{ first . }} is a single replica{{ else }}{{ join ", " (initial .) }} and {{ last . }} are single replicas{{ end }}, fine for trying Appwrite.
@@ -62,11 +63,13 @@ Before real users depend on this install, move to replicated services:
 {{- if .Values.compute.enabled }}
 
 Functions and Sites build as Jobs in namespace "{{ include "appwrite.builds.namespace" . }}" and execute in
-namespace "{{ include "appwrite.executor.namespace" . }}", on Docker-in-Docker{{ if .Values.compute.executor.privileged }} in a privileged container:
-keep the executor on nodes of its own{{ end }}.
+namespace "{{ include "appwrite.executor.namespace" . }}", on Docker-in-Docker{{ if .Values.compute.executor.privileged }} in a privileged container.
+For production, keep the executor on nodes of its own. Where privileged pods
+aren't allowed, set compute.enabled=false{{ end }}: {{ $docs }}/executor.md
 {{- else }}
 
-Functions and Sites are off. To turn them on: {{ $docs }}/executor.md
+Functions and Sites are off (compute.enabled=false): creating a function or
+site fails until they're on. To turn them on: {{ $docs }}/executor.md
 {{- end }}
 {{- if not .Values.smtp.host }}
 

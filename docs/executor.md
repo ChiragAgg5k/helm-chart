@@ -13,10 +13,10 @@ unprivileged Jobs. The executor creates a container per runtime through a
 Docker daemon, and Kubernetes has no Docker daemon to offer, so the chart
 gives each executor pod its own (Docker-in-Docker). That daemon runs as a
 **privileged container: root on its node**. That is why the executor gets a
-namespace of its own, why you have to accept it explicitly, and why it should
-get nodes of its own. Where privileged pods aren't allowed (GKE Autopilot,
-EKS on Fargate, a policy that forbids them), [Sysbox](#without-a-privileged-container)
-runs the daemon without it.
+namespace of its own, and why it should get nodes of its own. Where
+privileged pods aren't allowed (GKE Autopilot, EKS on Fargate, a policy that
+forbids them), [Sysbox](#without-a-privileged-container) runs the daemon
+without it, or set `compute.enabled: false`.
 
 ```mermaid
 flowchart LR
@@ -41,13 +41,16 @@ flowchart LR
   executor -- "build output" --> s3
 ```
 
-Functions and Sites are off by default (`compute.enabled: false`). The rest
-of Appwrite works without them; deployments of functions and sites stay in
-`waiting` and executions fail.
+Functions and Sites are on by default, on the
+[built-in object storage](storage.md#built-in-object-storage). With
+`compute.enabled: false`, the rest of Appwrite works, but creating a function
+or site fails
+([troubleshooting.md](troubleshooting.md#deployments-fail-with-an-internal-error)).
 
 ## Requirements
 
-- **S3 storage** (`storage.device: s3`, see [storage.md](storage.md)).
+- **S3 storage** (`storage.device: s3`, the default, see
+  [storage.md](storage.md)): the built-in object storage or your own store.
   Builds and the executor exchange code and build output through the bucket.
   The chart refuses to render `compute.enabled` without it.
 - **Nodes that may run a privileged pod** for the executor, ideally
@@ -67,6 +70,10 @@ of Appwrite works without them; deployments of functions and sites stay in
 
 ## 1. Configure the chart
 
+A plain install already runs both, with the built-in object storage and the
+executor on any node. For production, pin the executor to nodes of its own,
+use an S3 store with redundancy, and pick the runtimes you need:
+
 ```yaml
 appwrite:
   domain: appwrite.example.com
@@ -85,9 +92,8 @@ storage:
       value: <secret key>
 
 compute:
-  enabled: true
   executor:
-    privileged: true            # Docker-in-Docker: root on the node
+    privileged: true            # the default; Docker-in-Docker: root on the node
     nodeSelector:
       workload: executor
     tolerations:

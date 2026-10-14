@@ -76,6 +76,7 @@ tests:
   - it: restricts egress only when asked
     template: templates/networkpolicy/egress.yaml
     set:
+      compute.enabled: false
       networkPolicy.enabled: true
       networkPolicy.egress.enabled: true
       networkPolicy.egress.extraRules:

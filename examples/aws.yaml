@@ -83,6 +83,12 @@ storage:
     accessModes: [ReadWriteMany]      # EFS lets the API and workers spread across nodes
     storageClass: efs-sc
 
+# The executor runs in a namespace of its own and can't read the S3 Secret
+# above, so Functions and Sites stay off here: add
+# functions-existing-secrets.yaml to turn them on.
+compute:
+  enabled: false
+
 smtp:
   host: email-smtp.eu-west-1.amazonaws.com
   port: 587

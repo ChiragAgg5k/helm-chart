@@ -93,6 +93,12 @@ storage:
     accessModes: [ReadWriteMany]      # Filestore lets the API and workers spread across nodes
     storageClass: standard-rwx
 
+# The executor runs in a namespace of its own and can't read the S3 Secret
+# above, so Functions and Sites stay off here: add
+# functions-existing-secrets.yaml to turn them on.
+compute:
+  enabled: false
+
 smtp:
   host: smtp.sendgrid.net
   port: 587

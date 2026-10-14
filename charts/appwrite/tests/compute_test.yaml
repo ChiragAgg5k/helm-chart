@@ -8,6 +8,8 @@ release:
 values:
   - values/required.yaml
 set:
+  # Compute is on by default; the tests that need it turn it back on.
+  compute.enabled: false
   storage.device: s3
   storage.s3.mode: external
   storage.s3.external.endpoint: https://s3.example.com

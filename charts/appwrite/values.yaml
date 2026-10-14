@@ -650,8 +650,10 @@ clickhouse:
 # the `/storage` volume, `s3` in an S3-compatible bucket (required for
 # Functions and Sites). See docs/storage.md.
 storage:
-  # -- Where Appwrite stores files (`_APP_STORAGE_DEVICE`).
-  device: local # @schema enum: [local, s3]
+  # -- Where Appwrite stores files (`_APP_STORAGE_DEVICE`): `s3`, by default
+  # the built-in SeaweedFS (`storage.s3.mode`), or `local`, the `/storage`
+  # volume. Functions and Sites need `s3`.
+  device: s3 # @schema enum: [local, s3]
   # -- Maximum file size in bytes (`_APP_STORAGE_LIMIT`).
   limit: 30000000 # @schema minimum: 0
   # -- Maximum size in bytes of files Appwrite renders previews for (`_APP_STORAGE_PREVIEW_LIMIT`).
@@ -817,18 +819,19 @@ smtp:
 # of its own, and the executor runs executions on Docker-in-Docker in another.
 # See docs/executor.md.
 compute:
-  # -- Enable Functions and Sites. Needs `storage.device: s3` and
-  # `compute.executor.privileged` (see docs/executor.md).
-  enabled: false
+  # -- Enable Functions and Sites. Needs `storage.device: s3`, and runs the
+  # executor as a privileged pod in a namespace of its own (see
+  # docs/executor.md). Set to false on clusters that forbid privileged pods.
+  enabled: true
   # The open-runtimes executor, which starts a container per function or site
   # runtime and executes requests in it. It needs a Docker daemon, so it runs
   # on Docker-in-Docker, in a namespace of its own.
   executor:
     # -- Run the Docker daemon as a privileged container, which makes it root
     # on its node. Required unless `runtimeClassName` names a runtime that runs
-    # Docker without it, such as Sysbox. Give the executor nodes of its own
-    # (`nodeSelector`, `tolerations`).
-    privileged: false
+    # Docker without it, such as Sysbox. For production, give the executor
+    # nodes of its own (`nodeSelector`, `tolerations`).
+    privileged: true
     # -- RuntimeClass of executor pods, e.g. `sysbox-runc`.
     runtimeClassName: ""
     # -- Namespace of the executor. Defaults to `<release namespace>-executor`.

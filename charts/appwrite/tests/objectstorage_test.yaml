@@ -21,6 +21,7 @@ tests:
       - templates/seaweedfs/service.yaml
     set:
       storage.device: local
+      compute.enabled: false
     asserts:
       - hasDocuments:
           count: 0

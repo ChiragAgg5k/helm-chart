@@ -80,12 +80,11 @@ make install VALUES="charts/appwrite/ci/default-values.yaml my-values.yaml"
 make kind-down
 ```
 
-Functions and Sites need S3 and the executor. `hack/compute-plane.sh` starts
-an S3 server next to the kind cluster and writes the values for it:
+Functions and Sites are on by default, on the built-in object storage. To
+build and execute a function as the nightly workflow does:
 
 ```console
-hack/compute-plane.sh /tmp/compute-values.yaml
-make install VALUES="charts/appwrite/ci/full-values.yaml /tmp/compute-values.yaml"
+make install VALUES=charts/appwrite/ci/full-values.yaml
 hack/functions-smoke.sh appwrite appwrite node-22
 ```
 
@@ -193,9 +192,8 @@ hack/appwrite-e2e.sh ~/source/appwrite appwrite appwrite --filter testCreateUser
 
 It reconfigures the release for testing (development mode, open console
 sign-up, mail and request catchers), so only point it at a throwaway install.
-Functions and Sites suites need the compute plane
-(`hack/compute-plane.sh` writes the values) and the runtimes they use in
-`compute.functionsRuntimes`. Suites that need a fresh instance (the first
+Functions and Sites suites need the runtimes they use in
+`compute.functionsRuntimes` (as `charts/appwrite/ci/full-values.yaml` sets). Suites that need a fresh instance (the first
 organization in Teams), GitHub or Gitea, or ClamAV don't pass against a shared
 install.
 

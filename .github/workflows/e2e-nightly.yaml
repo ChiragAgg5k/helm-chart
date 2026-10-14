@@ -1,8 +1,8 @@
 name: Nightly end-to-end
 
 # Functions built and executed in the cluster (the executor on
-# Docker-in-Docker), with every optional component, which takes longer than
-# PR checks should.
+# Docker-in-Docker, the built-in object storage), with every optional
+# component, which takes longer than PR checks should.
 on:
   schedule:
     - cron: "17 3 * * *"
@@ -42,10 +42,8 @@ jobs:
           kubectl apply --server-side -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
           helm upgrade --install traefik traefik --repo https://traefik.github.io/charts --version "${TRAEFIK_CHART_VERSION}" \
             -n traefik --create-namespace -f hack/fixtures/traefik-values.yaml --wait --timeout 5m
-      - name: Start the compute plane
-        run: hack/compute-plane.sh "${RUNNER_TEMP}/compute-values.yaml"
       - name: Install with every optional component
-        run: make install VALUES="charts/appwrite/ci/full-values.yaml ${RUNNER_TEMP}/compute-values.yaml"
+        run: make install VALUES=charts/appwrite/ci/full-values.yaml
       - name: helm test
         run: make helm-test
       - name: Smoke test (includes a screenshot through the browser service)
@@ -72,7 +70,4 @@ jobs:
           kubectl -n appwrite-executor get pods,networkpolicies,events -o wide || true
           kubectl -n appwrite-executor logs deploy/appwrite-executor --all-containers --prefix --tail=200 || true
           kubectl -n appwrite-executor exec deploy/appwrite-executor -c dind -- docker ps -a || true
-          echo "::endgroup::"
-          echo "::group::aw-s3"
-          docker logs aw-s3 --tail=200 || true
           echo "::endgroup::"
