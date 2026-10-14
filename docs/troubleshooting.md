@@ -335,6 +335,11 @@ kubectl -n appwrite logs -l appwrite/role=worker --prefix --tail=2000 | grep -i 
   (`browser.enabled: false`). Turn it on and redeploy the site; screenshots
   are only taken during a deployment
   ([optional-components.md](optional-components.md#browser)).
+- `Hostname ... does not resolve` (in the API's log for
+  `/v1/avatars/screenshots`): with `networkPolicy.egress.enabled`, Appwrite
+  can't reach the resolver it checks URLs with (`_APP_DNS_EXTERNAL`, by
+  default 8.8.8.8). Allow it
+  ([networking.md](networking.md#requests-to-private-addresses)).
 - A timeout, or a refused connection to the API: with `networkPolicy.enabled`,
   the browser may only reach DNS, the API and public addresses
   ([security.md](security.md#network-policies)); check that its egress
