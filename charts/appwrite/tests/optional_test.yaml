@@ -13,9 +13,14 @@ release:
 values:
   - values/required.yaml
 tests:
-  - it: deploys none of them by default
+  - it: deploys the browser by default, as Sites need it for previews
+    template: templates/browser/deployment.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: deploys none of the others by default
     templates:
-      - templates/browser/deployment.yaml
       - templates/autogravity/deployment.yaml
       - templates/embedding/deployment.yaml
       - templates/mqtt/deployment.yaml

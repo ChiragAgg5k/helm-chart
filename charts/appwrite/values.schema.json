@@ -713,7 +713,7 @@
           "description": "Container security context."
         },
         "enabled": {
-          "description": "Deploy the browser service.",
+          "description": "Deploy the browser service. Sites need it for their preview screenshots: without it, every site deployment logs that capturing the screenshot failed, and the console shows no preview.",
           "type": "boolean"
         },
         "extraContainers": {

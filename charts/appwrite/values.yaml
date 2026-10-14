@@ -1887,8 +1887,10 @@ geo:
 # screenshot API. With NetworkPolicies enabled, it may only reach the
 # Appwrite API and public addresses. See docs/optional-components.md#browser.
 browser:
-  # -- Deploy the browser service.
-  enabled: false
+  # -- Deploy the browser service. Sites need it for their preview
+  # screenshots: without it, every site deployment logs that capturing the
+  # screenshot failed, and the console shows no preview.
+  enabled: true
   image:
     # -- Image registry.
     registry: docker.io
