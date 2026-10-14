@@ -219,10 +219,12 @@ the built-in ClickHouse with your own Secret too.
 
 ### S3: uploads fail with `SignatureDoesNotMatch`, `AccessDenied` or `NoSuchBucket`
 
-Check `region` (R2 and GCS use `auto`), that the bucket exists, and that the
-key may read, write, list and delete in it. With an `endpoint`, Appwrite uses
-path-style URLs, which the store must accept
-([storage.md](storage.md#s3)).
+With your own store, check `storage.s3.external.region` (R2 and GCS use
+`auto`), that the bucket exists, and that the key may read, write, list and
+delete in it. With an `external.endpoint`, Appwrite uses path-style URLs,
+which the store must accept ([storage.md](storage.md#your-own-s3-store)). With
+the built-in object storage, check that the `seaweedfs` pod is ready: it
+creates the bucket when it starts.
 
 ### Emails don't arrive
 

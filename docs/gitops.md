@@ -36,12 +36,26 @@ credentials, and how upgrades run Appwrite's data migration.
 > clickhouse:
 >   password:
 >     secretName: appwrite-credentials
+> storage:
+>   s3:                                # the built-in object storage's keys too
+>     accessKeyId:
+>       secretName: appwrite-credentials
+>     secretAccessKey:
+>       secretName: appwrite-credentials
+> compute:
+>   secrets:
+>     existingSecret: appwrite-credentials
+>   executor:
+>     existingSecret: appwrite-executor  # a copy in the executor namespace
 > migrations:
 >   mode: job
 > ```
 >
-> With Functions and Sites, add the [compute Secrets](#what-goes-in-the-secrets)
-> too. [Credentials](#credentials) has the details.
+> Functions and Sites are on by default, so the executor needs
+> [its own copy](#what-goes-in-the-secrets) of its secret and the S3 keys, in
+> its namespace. Without Functions and Sites, set `compute.enabled: false`
+> and leave out the `compute` block. [Credentials](#credentials) has the
+> details.
 
 ## Credentials
 
@@ -83,9 +97,9 @@ change it.
 | `database.password.secretName` | `db-password` (`database.password.secretKey`) | always: generated for the built-in PostgreSQL, required for an external database |
 | `redis.password.secretName` | `redis-password` (`redis.password.secretKey`) | built-in Redis with `redis.builtin.requirePassword` (the default), or an external Redis with a password |
 | `clickhouse.password.secretName` | `clickhouse-password` (`clickhouse.password.secretKey`) | built-in ClickHouse, or an external one with a password |
-| `compute.secrets.existingSecret` | `executor-secret`, `orchestrator-secret` (`compute.secrets.executorSecretKey`, `orchestratorSecretKey`) | `compute.enabled` |
-| `compute.executor.existingSecret`, **in the executor namespace** | `executor-secret`, `s3-access-key`, `s3-secret-key` ([executor.md](executor.md#existing-secrets)) | `compute.enabled`, with `compute.secrets.existingSecret` or an S3 `secretName` |
-| `storage.s3.accessKeyId.secretName`, `storage.s3.secretAccessKey.secretName` | `s3-access-key`, `s3-secret-key` (their `secretKey`) | S3 storage |
+| `compute.secrets.existingSecret` | `executor-secret`, `orchestrator-secret` (`compute.secrets.executorSecretKey`, `orchestratorSecretKey`) | `compute.enabled`, the default |
+| `compute.executor.existingSecret`, **in the executor namespace** | `executor-secret`, `s3-access-key`, `s3-secret-key` ([executor.md](executor.md#existing-secrets)) | `compute.enabled`, the default, with `compute.secrets.existingSecret` or an S3 `secretName` |
+| `storage.s3.accessKeyId.secretName`, `storage.s3.secretAccessKey.secretName` | `s3-access-key`, `s3-secret-key` (their `secretKey`) | `storage.device: s3`, the default: for the built-in object storage too, whose keys the chart would otherwise generate |
 | `documentsDb.password.secretName`, `vectorsDb.password.secretName` | `documentsdb-password`, `vectorsdb-password` (their `secretKey`) | DocumentsDB or VectorsDB with a password other than the main database's |
 | `smtp.password.secretName` | `smtp-password` (`smtp.password.secretKey`) | SMTP with a password |
 
@@ -298,12 +312,22 @@ spec:
         clickhouse:
           password:
             secretName: appwrite-credentials
-        migrations:
-          mode: job
         storage:
+          s3:
+            accessKeyId:
+              secretName: appwrite-credentials
+            secretAccessKey:
+              secretName: appwrite-credentials
           volume:
             annotations:
               argocd.argoproj.io/sync-options: Prune=false,Delete=false
+        compute:
+          secrets:
+            existingSecret: appwrite-credentials
+          executor:
+            existingSecret: appwrite-executor
+        migrations:
+          mode: job
         # ... the rest of your values
   destination:
     server: https://kubernetes.default.svc

@@ -166,6 +166,17 @@ redis:
 clickhouse:
   password:
     secretName: appwrite-clickhouse        # key: clickhouse-password
+storage:
+  s3:                                      # the built-in object storage's keys too
+    accessKeyId:
+      secretName: appwrite-s3              # key: s3-access-key
+    secretAccessKey:
+      secretName: appwrite-s3              # key: s3-secret-key
+compute:                                   # Functions and Sites, on by default
+  secrets:
+    existingSecret: appwrite-compute       # keys: executor-secret, orchestrator-secret
+  executor:
+    existingSecret: appwrite-executor      # a copy in the executor namespace (executor.md#existing-secrets)
 ```
 
 Key names are configurable (`appwrite.secrets.keys.*`, and `secretKey` next
