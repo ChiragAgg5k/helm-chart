@@ -137,8 +137,6 @@ jobs:
         env:
           REF: ${{ steps.chart.outputs.ref }}
           VERSION: ${{ steps.chart.outputs.version }}
-        # The GitHub release carries the exact archive in the registry. Helm 4
-        # doesn't create the destination directory.
         run: |
           mkdir -p "${RUNNER_TEMP}/release"
           helm pull "oci://${REF}" --version "${VERSION}" --destination "${RUNNER_TEMP}/release"
