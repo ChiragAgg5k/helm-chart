@@ -28,16 +28,16 @@ One with a secretName lives in that Secret; the chart stores the others.
 */}}
 {{- $v := .Values }}
 {{- $s3 := eq $v.storage.device "s3" }}
+{{- $s3Builtin := and $s3 (eq $v.storage.s3.mode "builtin") }}
 {{- $credentials := list
   (list $v.database.password "db-password" true (eq $v.database.mode "builtin"))
   (list $v.redis.password "redis-password" true (and (eq $v.redis.mode "builtin") $v.redis.builtin.requirePassword))
   (list $v.clickhouse.password "clickhouse-password" true (eq $v.clickhouse.mode "builtin"))
   (list $v.documentsDb.password "documentsdb-password" $v.documentsDb.enabled false)
   (list $v.vectorsDb.password "vectorsdb-password" $v.vectorsDb.enabled false)
-  (list $v.storage.s3.accessKeyId "s3-access-key" $s3 false)
-  (list $v.storage.s3.secretAccessKey "s3-secret-key" $s3 false)
-  (list $v.smtp.password "smtp-password" true false)
-  (list $v.assistant.apiKey "openai-api-key" $v.assistant.enabled false) }}
+  (list $v.storage.s3.accessKeyId "s3-access-key" $s3 $s3Builtin)
+  (list $v.storage.s3.secretAccessKey "s3-secret-key" $s3 $s3Builtin)
+  (list $v.smtp.password "smtp-password" true false) }}
 {{- range $credentials }}
 {{- $ref := index . 0 }}
 {{- $key := index . 1 }}

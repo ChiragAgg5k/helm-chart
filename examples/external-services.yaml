@@ -68,8 +68,10 @@ clickhouse:
 storage:
   device: s3
   s3:
-    endpoint: https://s3.example.com
-    region: us-east-1
+    mode: external
+    external:
+      endpoint: https://s3.example.com
+      region: us-east-1
     bucket: appwrite
     accessKeyId:
       secretName: appwrite-external
@@ -78,6 +80,12 @@ storage:
   # With S3, /storage only holds certificates and scratch files.
   volume:
     size: 5Gi
+
+# The executor runs in a namespace of its own and can't read the S3 Secret
+# above, so Functions and Sites stay off here: add
+# functions-existing-secrets.yaml to turn them on.
+compute:
+  enabled: false
 
 smtp:
   host: smtp.example.com

@@ -1,6 +1,8 @@
 {{- define "appwrite.clickhouse.config" -}}
 system-log-ttl.xml: |
   {{- .Files.Get "files/clickhouse/system-log-ttl.xml" | nindent 2 }}
+init.sh: |
+  {{- .Files.Get "files/clickhouse/init.sh" | nindent 2 }}
 logging.xml: |
   {{- .Files.Get "files/clickhouse/logging.xml" | nindent 2 }}
 {{- if .Values.clickhouse.builtin.metrics.enabled }}

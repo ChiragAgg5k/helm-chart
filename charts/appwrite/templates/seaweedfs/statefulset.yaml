@@ -1,0 +1,40 @@
+{{- if include "appwrite.s3.builtin" . }}
+{{- $s := .Values.storage.s3 }}
+{{- $v := $s.builtin }}
+{{- $env := list
+  (dict "name" "S3_ACCESS_KEY" "valueFrom" (include "appwrite.credential.valueFrom" (dict "root" . "ref" $s.accessKeyId "chartKey" "s3-access-key") | fromYaml))
+  (dict "name" "S3_SECRET_KEY" "valueFrom" (include "appwrite.credential.valueFrom" (dict "root" . "ref" $s.secretAccessKey "chartKey" "s3-secret-key") | fromYaml))
+  (dict "name" "S3_BUCKET" "value" $s.bucket)
+  (dict "name" "HOME" "value" "/tmp") }}
+{{- /*
+The S3 gateway reads its users from a file, written from the Secret on every
+start. Master, volume server and filer talk over loopback inside the pod; only
+the S3 port is served.
+*/}}
+{{- $script := printf `set -eu
+esc() { printf '%%s' "$1" | sed 's/[\\"]/\\&/g'; }
+printf '{"identities":[{"name":"appwrite","credentials":[{"accessKey":"%%s","secretKey":"%%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}' \
+  "$(esc "$S3_ACCESS_KEY")" "$(esc "$S3_SECRET_KEY")" > /tmp/s3.json
+exec weed server -dir=/data -ip=127.0.0.1 -ip.bind=0.0.0.0 -s3 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=%d -volume.max=0` (int $v.volumeSizeLimitMB) }}
+{{- /* Creates the bucket before the pod reports ready; "already exists" is fine. */}}
+{{- $postStart := `for i in $(seq 1 60); do
+  out=$(echo "s3.bucket.create -name $S3_BUCKET" | weed shell -master=localhost:9333 2>&1) || true
+  case "$out" in *"created bucket"*|*"already exists"*) exit 0;; esac
+  sleep 2
+done
+echo "$out" >&2
+exit 1` }}
+{{- $handler := dict "httpGet" (dict "path" "/healthz" "port" "s3") }}
+{{- include "appwrite.datastore" (dict
+  "root" .
+  "component" "seaweedfs"
+  "values" $v
+  "command" (list "sh" "-c" $script)
+  "env" (toYaml $env)
+  "ports" (list (dict "name" "s3" "containerPort" 8333 "protocol" "TCP"))
+  "probes" (include "appwrite.datastore.probes" (dict "handler" $handler))
+  "lifecycle" (toYaml (dict "postStart" (dict "exec" (dict "command" (list "sh" "-c" $postStart)))))
+  "dataPath" "/data"
+  "secretKeys" (list "s3-access-key" "s3-secret-key")
+) }}
+{{- end }}

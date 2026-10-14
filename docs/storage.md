@@ -4,19 +4,23 @@ Appwrite stores files (bucket uploads, deployment code, build output,
 certificates) either on a volume under `/storage` or in S3-compatible object
 storage. `storage.device` picks one:
 
-| | `local` (default) | `s3` |
+| | `s3` (default) | `local` |
 | --- | --- | --- |
-| Files live on | a PersistentVolumeClaim | a bucket |
-| Spreading the API and workers across nodes | needs a ReadWriteMany volume | still needs a small ReadWriteMany volume ([why](#the-volume-with-s3)) |
-| [Functions and Sites](executor.md) | not supported | required |
-| [Antivirus](#antivirus) scanning | supported | not supported |
+| Files live on | a bucket: the [built-in object storage](#built-in-object-storage) or [your own](#your-own-s3-store) | a PersistentVolumeClaim |
+| Spreading the API and workers across nodes | still needs a small ReadWriteMany volume ([why](#the-volume-with-s3)) | needs a ReadWriteMany volume |
+| [Functions and Sites](executor.md) | required | not supported: set `compute.enabled: false` |
+| [Antivirus](#antivirus) scanning | not supported | supported |
 
 Choose before going live: changing `device` later doesn't move files that are
 already stored. They stay where they were written.
 
-## Local storage (default)
+## Local storage
+
+Files on the `/storage` volume, without Functions and Sites:
 
 ```yaml
+compute:
+  enabled: false
 storage:
   device: local
   volume:
@@ -84,6 +88,43 @@ The chart then creates no claim of its own, and ignores `size` and
 
 Object storage takes files off the volume, lets pods share them without a
 ReadWriteMany claim, and is required for [Functions and Sites](executor.md).
+`storage.s3.mode` picks where the bucket lives: in the release (`builtin`,
+the default), or in a store you run or buy (`external`).
+
+### Built-in object storage
+
+```yaml
+storage:
+  device: s3
+```
+
+That's all. The chart runs [SeaweedFS](https://github.com/seaweedfs/seaweedfs),
+an Apache-2.0 S3-compatible store, as a single-replica StatefulSet
+(`<fullname>-seaweedfs`) on a 20Gi volume
+(`storage.s3.builtin.persistence.size`). It creates the bucket
+(`storage.s3.bucket`, `appwrite` by default) when it starts, and the chart
+generates its access keys once and keeps them in its Secret (`s3-access-key`,
+`s3-secret-key`), like the other built-in credentials. Appwrite, the
+orchestrator, build Jobs and the executor reach it at
+`http://<fullname>-seaweedfs.<namespace>.svc:8333`; it has no route from
+outside the cluster. With `networkPolicy.enabled`, the
+`<fullname>-object-storage` policy lets only those pods in.
+
+It's one pod and one volume, without replication: back the volume up
+([backup-restore.md](backup-restore.md)), or use your own store with
+redundancy once real users depend on the install. The volume grows like the
+[datastore volumes](#datastore-volumes) (claim `data-<fullname>-seaweedfs-0`).
+SeaweedFS fills it with volume files of `storage.s3.builtin.volumeSizeLimitMB`
+(1024 MB), so keep the claim at a few GB at least.
+
+### Your own S3 store
+
+```yaml
+storage:
+  device: s3
+  s3:
+    mode: external
+```
 
 **1. Create a bucket** and an access key that can read, write, list and
 delete objects in it. Appwrite doesn't create the bucket. On AWS, an IAM
@@ -121,8 +162,10 @@ kubectl -n appwrite create secret generic appwrite-s3 \
 storage:
   device: s3
   s3:
-    endpoint: https://fsn1.your-objectstorage.com   # empty for AWS S3
-    region: fsn1                                    # default us-east-1
+    mode: external
+    external:
+      endpoint: https://fsn1.your-objectstorage.com   # empty for AWS S3
+      region: fsn1                                    # default us-east-1
     bucket: appwrite
     accessKeyId:
       secretName: appwrite-s3                       # or value: ... inline
@@ -207,12 +250,13 @@ Your ingress controller's request body limit matters too
 
 ## Datastore volumes
 
-The built-in PostgreSQL, Redis and ClickHouse each keep their data on a claim
+The built-in PostgreSQL, Redis, ClickHouse and SeaweedFS each keep their data on a claim
 created from their StatefulSet's `volumeClaimTemplates`, named
 `data-<fullname>-<datastore>-0` (for example `data-appwrite-postgresql-0`).
 Kubernetes doesn't allow changing a StatefulSet's claim templates, so changing
-`<service>.builtin.persistence.size` (`database`, `redis` or `clickhouse`)
-after installing makes `helm upgrade` fail.
+`<service>.builtin.persistence.size` (`database`, `redis` or `clickhouse`,
+and `storage.s3.builtin.persistence.size`) after installing makes
+`helm upgrade` fail.
 
 To grow a volume, with a StorageClass that has `allowVolumeExpansion: true`:
 
@@ -249,7 +293,7 @@ appwrite:
 ```
 
 Run ClamAV separately (for example with its official image as a Deployment).
-Appwrite 2.3.0 scans only:
+Appwrite 2.5.0 scans only:
 
 - with `device: local`. Files stored in S3 aren't scanned.
 - files up to 20 MB.

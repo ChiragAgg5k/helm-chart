@@ -427,7 +427,7 @@ vectorsDb:
 
 # Redis, for queues, cache, pub/sub and locks. `builtin` runs a
 # single-replica StatefulSet; `external` connects to a single endpoint
-# without TLS (Appwrite 2.3.0 has no Redis TLS, Sentinel or Cluster).
+# without TLS (Appwrite 2.5.0 has no Redis TLS, Sentinel or Cluster).
 # See docs/external-databases.md#redis.
 redis:
   # -- `builtin` deploys Redis in the release; `external` uses `redis.external`.
@@ -650,36 +650,124 @@ clickhouse:
 # the `/storage` volume, `s3` in an S3-compatible bucket (required for
 # Functions and Sites). See docs/storage.md.
 storage:
-  # -- Where Appwrite stores files (`_APP_STORAGE_DEVICE`).
-  device: local # @schema enum: [local, s3]
+  # -- Where Appwrite stores files (`_APP_STORAGE_DEVICE`): `s3`, by default
+  # the built-in SeaweedFS (`storage.s3.mode`), or `local`, the `/storage`
+  # volume. Functions and Sites need `s3`.
+  device: s3 # @schema enum: [local, s3]
   # -- Maximum file size in bytes (`_APP_STORAGE_LIMIT`).
   limit: 30000000 # @schema minimum: 0
   # -- Maximum size in bytes of files Appwrite renders previews for (`_APP_STORAGE_PREVIEW_LIMIT`).
   previewLimit: 20000000 # @schema minimum: 0
   s3:
-    # -- Endpoint of an S3-compatible store (`_APP_STORAGE_S3_ENDPOINT`), e.g.
-    # `https://fsn1.your-objectstorage.com` or
-    # `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3.
-    # Endpoints and regions per provider: docs/storage.md#s3.
-    endpoint: ""
-    # -- Region (`_APP_STORAGE_S3_REGION`).
-    region: us-east-1
-    # -- Bucket (`_APP_STORAGE_S3_BUCKET`). Required with `device: s3`.
-    bucket: ""
+    # -- `builtin` runs SeaweedFS, an S3-compatible store, in the release;
+    # `external` uses `storage.s3.external`. Only used with `device: s3`.
+    mode: builtin # @schema enum: [builtin, external]
+    # -- Bucket (`_APP_STORAGE_S3_BUCKET`). The built-in store creates it.
+    bucket: appwrite
     accessKeyId:
-      # -- Access key ID, set inline. Stored in the chart's Secret.
+      # -- Access key ID, set inline. Stored in the chart's Secret. With
+      # `mode: builtin`, generated once when empty.
       value: ""
       # -- Existing Secret holding the access key id. Takes precedence over `value`.
       secretName: ""
       # -- Key in the Secret.
       secretKey: s3-access-key
     secretAccessKey:
-      # -- Secret access key, set inline. Stored in the chart's Secret.
+      # -- Secret access key, set inline. Stored in the chart's Secret. With
+      # `mode: builtin`, generated once when empty.
       value: ""
       # -- Existing Secret holding the secret access key. Takes precedence over `value`.
       secretName: ""
       # -- Key in the Secret.
       secretKey: s3-secret-key
+    # Your own S3-compatible store (`mode: external`).
+    external:
+      # -- Endpoint (`_APP_STORAGE_S3_ENDPOINT`), e.g.
+      # `https://fsn1.your-objectstorage.com` or
+      # `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3.
+      # Endpoints and regions per provider: docs/storage.md#s3.
+      endpoint: ""
+      # -- Region (`_APP_STORAGE_S3_REGION`).
+      region: us-east-1
+    # Settings of the built-in SeaweedFS (`mode: builtin`): a single-replica
+    # StatefulSet running master, volume server, filer and S3 gateway in one
+    # process. See docs/storage.md#built-in-object-storage.
+    builtin:
+      image:
+        # -- Image registry.
+        registry: docker.io
+        # -- Image repository.
+        repository: chrislusf/seaweedfs
+        # -- Image tag.
+        tag: "4.48"
+        # -- Image digest.
+        digest: ""
+        # -- Image pull policy.
+        pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+      # -- Size of each SeaweedFS volume file in MB. The store fills the disk
+      # with volumes of this size, so keep it well below `persistence.size`.
+      volumeSizeLimitMB: 1024 # @schema minimum: 1
+      # -- Resource requests and limits.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 1Gi
+      persistence:
+        # -- Persist data in a PersistentVolumeClaim. Without it, every
+        # restart loses the files and build output.
+        enabled: true
+        # -- Storage class. Empty uses `global.storageClass`, then the cluster
+        # default; `-` requests no class.
+        storageClass: ""
+        # -- Access modes.
+        accessModes: [ReadWriteOnce] # @schema item: string
+        # -- Volume size: uploaded files, deployment sources and build output.
+        size: 20Gi
+        # -- Annotations for the PersistentVolumeClaim.
+        annotations: {} # @schema additionalProperties: {type: string}
+      # -- Pod security context. The image runs as root by default; the
+      # chart runs it as UID 1000.
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      # -- Container security context.
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        privileged: false
+        capabilities:
+          drop: [ALL]
+      # -- Pod annotations, merged over `defaults.podAnnotations`.
+      podAnnotations: {} # @schema additionalProperties: {type: string}
+      # -- Pod labels, merged over `defaults.podLabels`.
+      podLabels: {} # @schema additionalProperties: {type: string}
+      # -- Node selector. Empty inherits `defaults.nodeSelector`.
+      nodeSelector: {} # @schema additionalProperties: {type: string}
+      # -- Tolerations. Empty inherits `defaults.tolerations`.
+      tolerations: [] # @schema item: object
+      # -- Affinity. Empty inherits `defaults.affinity`.
+      affinity: {} # @schema additionalProperties: true
+      # -- Priority class. Empty inherits `defaults.priorityClassName`.
+      priorityClassName: ""
+      # -- Seconds to wait on shutdown.
+      terminationGracePeriodSeconds: 60
+      # -- Extra environment variables, as a list of EnvVar objects.
+      extraEnv: [] # @schema item: object
+      # -- Extra volumes.
+      extraVolumes: [] # @schema item: object
+      # -- Extra volume mounts for the main container.
+      extraVolumeMounts: [] # @schema item: object
+      # -- Extra init containers.
+      extraInitContainers: [] # @schema item: object
+      # -- Extra sidecar containers.
+      extraContainers: [] # @schema item: object
   # The `/storage` volume. Appwrite uses it for files with `device: local`,
   # and for certificates and scratch files with either device.
   volume:
@@ -731,18 +819,19 @@ smtp:
 # of its own, and the executor runs executions on Docker-in-Docker in another.
 # See docs/executor.md.
 compute:
-  # -- Enable Functions and Sites. Needs `storage.device: s3` and
-  # `compute.executor.privileged` (see docs/executor.md).
-  enabled: false
+  # -- Enable Functions and Sites. Needs `storage.device: s3`, and runs the
+  # executor as a privileged pod in a namespace of its own (see
+  # docs/executor.md). Set to false on clusters that forbid privileged pods.
+  enabled: true
   # The open-runtimes executor, which starts a container per function or site
   # runtime and executes requests in it. It needs a Docker daemon, so it runs
   # on Docker-in-Docker, in a namespace of its own.
   executor:
     # -- Run the Docker daemon as a privileged container, which makes it root
     # on its node. Required unless `runtimeClassName` names a runtime that runs
-    # Docker without it, such as Sysbox. Give the executor nodes of its own
-    # (`nodeSelector`, `tolerations`).
-    privileged: false
+    # Docker without it, such as Sysbox. For production, give the executor
+    # nodes of its own (`nodeSelector`, `tolerations`).
+    privileged: true
     # -- RuntimeClass of executor pods, e.g. `sysbox-runc`.
     runtimeClassName: ""
     # -- Namespace of the executor. Defaults to `<release namespace>-executor`.
@@ -761,7 +850,7 @@ compute:
       # -- Image repository.
       repository: openruntimes/executor
       # -- Image tag.
-      tag: 0.29.0
+      tag: 1.1.2
       # -- Image digest.
       digest: ""
     dind:
@@ -947,7 +1036,7 @@ compute:
       # ranges, IPv6 clusters).
       deniedCIDRs: [] # @schema item: string
   # -- Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the
-  # Docker installer's list (node-16.0, php-8.0, python-3.9, ruby-3.0).
+  # Docker installer's list (node-16.0, node-22, php-8.0, python-3.9, ruby-3.0).
   functionsRuntimes: [] # @schema item: string
   # -- Site runtimes to enable (`_APP_SITES_RUNTIMES`). Empty keeps the
   # Docker installer's list (static-1, node-22, flutter-3.29). Sites build
@@ -1091,7 +1180,7 @@ console:
     # -- Image repository.
     repository: appwrite/new
     # -- Image tag. Pinned to the console that ships with the chart's appVersion.
-    tag: 1.1.159-self-hosted
+    tag: 1.2.74-self-hosted
     # -- Image digest.
     digest: ""
     # -- Image pull policy.
@@ -1100,7 +1189,6 @@ console:
   env:
     VITE_CONSOLE_PROFILE: self-hosted
     APPWRITE_ENDPOINT_SAME_ORIGIN: "true"
-    VITE_GROWTH_ENDPOINT: https://growth.appwrite.io/v1
   # -- Number of console replicas. Ignored when autoscaling is enabled.
   replicaCount: 1 # @schema minimum: 0
   # -- Resource requests and limits.
@@ -1738,7 +1826,7 @@ geo:
     # -- Image repository.
     repository: appwrite/geo
     # -- Image tag.
-    tag: 0.3.1
+    tag: 0.3.2
     # -- Image digest.
     digest: ""
     # -- Image pull policy.
@@ -1807,7 +1895,7 @@ browser:
     # -- Image repository.
     repository: appwrite/browser
     # -- Image tag.
-    tag: 0.3.4
+    tag: 0.3.6
     # -- Image digest.
     digest: ""
     # -- Image pull policy.
@@ -1827,78 +1915,6 @@ browser:
     runAsUser: 999
     runAsGroup: 999
     fsGroup: 999
-    seccompProfile:
-      type: RuntimeDefault
-  # -- Container security context.
-  containerSecurityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    privileged: false
-    capabilities:
-      drop: [ALL]
-  # -- Pod annotations, merged over `defaults.podAnnotations`.
-  podAnnotations: {} # @schema additionalProperties: {type: string}
-  # -- Pod labels, merged over `defaults.podLabels`.
-  podLabels: {} # @schema additionalProperties: {type: string}
-  # -- Node selector. Empty inherits `defaults.nodeSelector`.
-  nodeSelector: {} # @schema additionalProperties: {type: string}
-  # -- Tolerations. Empty inherits `defaults.tolerations`.
-  tolerations: [] # @schema item: object
-  # -- Affinity. Empty inherits `defaults.affinity`.
-  affinity: {} # @schema additionalProperties: true
-  # -- Priority class. Empty inherits `defaults.priorityClassName`.
-  priorityClassName: ""
-  # -- Seconds to wait on shutdown.
-  terminationGracePeriodSeconds: 30
-  # -- Extra environment variables, as a list of EnvVar objects.
-  extraEnv: [] # @schema item: object
-  # -- Extra volumes.
-  extraVolumes: [] # @schema item: object
-  # -- Extra volume mounts for the main container.
-  extraVolumeMounts: [] # @schema item: object
-  # -- Extra init containers.
-  extraInitContainers: [] # @schema item: object
-  # -- Extra sidecar containers.
-  extraContainers: [] # @schema item: object
-
-# AI assistant in the console, backed by OpenAI. Appwrite reaches it at the
-# fixed address `appwrite-assistant:3003`, so its Service is named
-# `appwrite-assistant` and only one release per namespace can enable it.
-# See docs/optional-components.md#assistant.
-assistant:
-  # -- Deploy the assistant.
-  enabled: false
-  image:
-    # -- Image registry.
-    registry: docker.io
-    # -- Image repository.
-    repository: appwrite/assistant
-    # -- Image tag.
-    tag: 0.8.4
-    # -- Image digest.
-    digest: ""
-    # -- Image pull policy.
-    pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
-  apiKey:
-    # -- OpenAI API key (`_APP_ASSISTANT_OPENAI_API_KEY`), set inline. Stored in the chart's Secret.
-    value: ""
-    # -- Existing Secret holding the OpenAI API key. Takes precedence over `value`.
-    secretName: ""
-    # -- Key in the Secret.
-    secretKey: openai-api-key
-  # -- Resource requests and limits.
-  resources:
-    requests:
-      cpu: 20m
-      memory: 128Mi
-    limits:
-      memory: 512Mi
-  # -- Pod security context.
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-    fsGroup: 1000
     seccompProfile:
       type: RuntimeDefault
   # -- Container security context.
@@ -2225,7 +2241,7 @@ httpRoute:
 networkPolicy:
   # -- Create NetworkPolicies in the release namespace. The built-in
   # datastores then accept only Appwrite pods of this release, the internal
-  # services (geo, browser, assistant, autogravity, embedding) only pods of
+  # services (geo, browser, autogravity, embedding) only pods of
   # this release, and workers and tasks no incoming traffic. Off by default:
   # any pod in the cluster can reach the built-in PostgreSQL, Redis and
   # ClickHouse, which only their passwords protect. Policies only take effect
@@ -2245,7 +2261,8 @@ networkPolicy:
   egress:
     # -- Restrict egress to DNS, pods of this release and `extraRules` (needs
     # `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and
-    # the DNS server it verifies custom domains against (`_APP_DNS`, 8.8.8.8).
+    # the DNS server it verifies custom domains, migration sources and avatar
+    # URLs against (`_APP_DNS` and `_APP_DNS_EXTERNAL`, 8.8.8.8).
     # With compute, the orchestrator also needs the Kubernetes API. Allow what
     # you use in `extraRules`; the executor is allowed already.
     enabled: false

@@ -1,8 +1,6 @@
 suite: optional components
 templates:
   - templates/browser/deployment.yaml
-  - templates/assistant/deployment.yaml
-  - templates/assistant/service.yaml
   - templates/autogravity/deployment.yaml
   - templates/embedding/deployment.yaml
   - templates/embedding/pvc.yaml
@@ -18,7 +16,6 @@ tests:
   - it: deploys none of them by default
     templates:
       - templates/browser/deployment.yaml
-      - templates/assistant/deployment.yaml
       - templates/autogravity/deployment.yaml
       - templates/embedding/deployment.yaml
       - templates/mqtt/deployment.yaml
@@ -65,39 +62,24 @@ tests:
           path: spec.template.spec.securityContext.runAsUser
           value: 999
 
-  - it: names the assistant Service as Appwrite expects
-    template: templates/assistant/service.yaml
+  - it: lets the browser load sites through the API Service
+    template: templates/browser/deployment.yaml
     set:
-      assistant.enabled: true
-      assistant.apiKey.value: sk
-    asserts:
-      - equal:
-          path: metadata.name
-          value: appwrite-assistant
-      - equal:
-          path: spec.ports[0].port
-          value: 3003
-
-  - it: gives Appwrite the assistant key so the console shows it
-    template: templates/api/deployment.yaml
-    set:
-      assistant.enabled: true
-      assistant.apiKey.secretName: openai
+      browser.enabled: true
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: _APP_ASSISTANT_OPENAI_API_KEY
-            valueFrom:
-              secretKeyRef: {name: openai, key: openai-api-key}
+            name: ALLOWED_HOSTS
+            value: aw-appwrite-api.NAMESPACE.svc
 
-  - it: requires an OpenAI key for the assistant
+  - it: fails on the removed assistant with what to do instead
     template: templates/configmap-env.yaml
     set:
       assistant.enabled: true
     asserts:
       - failedTemplate:
-          errorPattern: assistant.enabled needs
+          errorPattern: "assistant is no longer supported: Appwrite removed the assistant in 2.4.0"
 
   - it: keeps embedding models on a volume and recreates the pod on updates
     template: templates/embedding/deployment.yaml

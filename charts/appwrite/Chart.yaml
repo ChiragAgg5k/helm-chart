@@ -3,10 +3,10 @@ name: appwrite
 description: Appwrite, the open-source backend platform, on Kubernetes. Deploys the API, console, realtime, workers and schedulers with optional built-in PostgreSQL, Redis and ClickHouse.
 type: application
 version: 1.0.0
-appVersion: "2.3.0"
+appVersion: "2.5.0"
 kubeVersion: ">=1.29.0-0"
 home: https://github.com/appwrite/helm-chart
-icon: https://raw.githubusercontent.com/appwrite/appwrite/2.3.0/public/images/logos/appwrite-icon.svg
+icon: https://raw.githubusercontent.com/appwrite/appwrite/2.5.0/public/images/logos/appwrite-icon.svg
 sources:
   - https://github.com/appwrite/helm-chart
   - https://github.com/appwrite/appwrite
@@ -61,13 +61,11 @@ annotations:
       description: '`values.schema.json`, `helm test` pods, documentation from getting started to backups, GitOps and troubleshooting, and example values files for local, production, external services, AWS, GCP, Azure, and Functions and Sites installs.'
   artifacthub.io/images: |
     - name: appwrite
-      image: docker.io/appwrite/appwrite:2.3.0
-    - name: assistant
-      image: docker.io/appwrite/assistant:0.8.4
+      image: docker.io/appwrite/appwrite:2.5.0
     - name: autogravity
       image: ghcr.io/appwrite/autogravity:0.0.11
     - name: browser
-      image: docker.io/appwrite/browser:0.3.4
+      image: docker.io/appwrite/browser:0.3.6
     - name: builds
       image: ghcr.io/open-runtimes/orchestrator/job-sidecar:2.2.3
     - name: builtin
@@ -76,20 +74,22 @@ annotations:
       image: docker.io/library/redis:7.4.11-alpine
     - name: builtin
       image: docker.io/clickhouse/clickhouse-server:26.4.5-alpine
+    - name: builtin
+      image: docker.io/chrislusf/seaweedfs:4.48
     - name: builtin-exporter
       image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
     - name: builtin-exporter
       image: docker.io/oliver006/redis_exporter:v1.93.0-alpine
     - name: console
-      image: docker.io/appwrite/new:1.1.159-self-hosted
+      image: docker.io/appwrite/new:1.2.74-self-hosted
     - name: dind
       image: docker.io/library/docker:29.9.0-dind
     - name: embedding
       image: docker.io/appwrite/embedding:0.3.1
     - name: executor
-      image: docker.io/openruntimes/executor:0.29.0
+      image: docker.io/openruntimes/executor:1.1.2
     - name: geo
-      image: docker.io/appwrite/geo:0.3.1
+      image: docker.io/appwrite/geo:0.3.2
     - name: orchestrator
       image: ghcr.io/open-runtimes/orchestrator/jobs-service:2.2.3
   artifacthub.io/displayName: Appwrite

@@ -88,7 +88,6 @@ change it.
 | `storage.s3.accessKeyId.secretName`, `storage.s3.secretAccessKey.secretName` | `s3-access-key`, `s3-secret-key` (their `secretKey`) | S3 storage |
 | `documentsDb.password.secretName`, `vectorsDb.password.secretName` | `documentsdb-password`, `vectorsdb-password` (their `secretKey`) | DocumentsDB or VectorsDB with a password other than the main database's |
 | `smtp.password.secretName` | `smtp-password` (`smtp.password.secretKey`) | SMTP with a password |
-| `assistant.apiKey.secretName` | `openai-api-key` (`assistant.apiKey.secretKey`) | `assistant.enabled` |
 
 The executor runs in a namespace of its own and can't read Secrets in the
 release namespace, so it needs its own copy of `executor-secret` and the S3

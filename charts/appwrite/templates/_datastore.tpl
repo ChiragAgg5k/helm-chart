@@ -10,6 +10,7 @@ Usage: include "appwrite.datastore" (dict
   "env" "<yaml list>"
   "ports" (list ...)
   "probes" "<yaml>"
+  "lifecycle" "<yaml>"          optional (postStart, preStop)
   "dataPath" "/var/lib/postgresql"
   "volumeMounts" "<yaml list>"  extra mounts
   "volumes" "<yaml list>"       extra volumes
@@ -90,6 +91,10 @@ spec:
             {{- toYaml .ports | nindent 12 }}
           {{- with .probes }}
           {{- . | trim | nindent 10 }}
+          {{- end }}
+          {{- with .lifecycle }}
+          lifecycle:
+            {{- . | trim | nindent 12 }}
           {{- end }}
           {{- with $v.containerSecurityContext }}
           securityContext:

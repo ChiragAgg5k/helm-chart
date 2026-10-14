@@ -541,180 +541,6 @@
       },
       "additionalProperties": false
     },
-    "assistant": {
-      "type": "object",
-      "properties": {
-        "affinity": {
-          "type": "object",
-          "description": "Affinity. Empty inherits `defaults.affinity`."
-        },
-        "apiKey": {
-          "type": "object",
-          "properties": {
-            "secretKey": {
-              "description": "Key in the Secret.",
-              "type": "string"
-            },
-            "secretName": {
-              "description": "Existing Secret holding the OpenAI API key. Takes precedence over `value`.",
-              "type": "string"
-            },
-            "value": {
-              "description": "OpenAI API key (`_APP_ASSISTANT_OPENAI_API_KEY`), set inline. Stored in the chart's Secret.",
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "containerSecurityContext": {
-          "type": "object",
-          "description": "Container security context."
-        },
-        "enabled": {
-          "description": "Deploy the assistant.",
-          "type": "boolean"
-        },
-        "extraContainers": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Extra sidecar containers."
-        },
-        "extraEnv": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Extra environment variables, as a list of EnvVar objects."
-        },
-        "extraInitContainers": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Extra init containers."
-        },
-        "extraVolumeMounts": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Extra volume mounts for the main container."
-        },
-        "extraVolumes": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Extra volumes."
-        },
-        "image": {
-          "type": "object",
-          "properties": {
-            "digest": {
-              "type": "string",
-              "pattern": "^$|^sha256:[a-f0-9]{64}$",
-              "description": "Image digest."
-            },
-            "pullPolicy": {
-              "description": "Image pull policy.",
-              "type": "string",
-              "enum": [
-                "Always",
-                "IfNotPresent",
-                "Never"
-              ]
-            },
-            "registry": {
-              "description": "Image registry.",
-              "type": "string"
-            },
-            "repository": {
-              "description": "Image repository.",
-              "type": "string"
-            },
-            "tag": {
-              "description": "Image tag.",
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "nodeSelector": {
-          "description": "Node selector. Empty inherits `defaults.nodeSelector`.",
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "podAnnotations": {
-          "description": "Pod annotations, merged over `defaults.podAnnotations`.",
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "podLabels": {
-          "description": "Pod labels, merged over `defaults.podLabels`.",
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "podSecurityContext": {
-          "type": "object",
-          "description": "Pod security context."
-        },
-        "priorityClassName": {
-          "description": "Priority class. Empty inherits `defaults.priorityClassName`.",
-          "type": "string"
-        },
-        "resources": {
-          "type": "object",
-          "properties": {
-            "requests": {
-              "type": "object",
-              "additionalProperties": {
-                "type": [
-                  "string",
-                  "number"
-                ]
-              }
-            },
-            "limits": {
-              "type": "object",
-              "additionalProperties": {
-                "type": [
-                  "string",
-                  "number"
-                ]
-              }
-            },
-            "claims": {
-              "type": "array",
-              "items": {
-                "type": "object"
-              }
-            }
-          },
-          "additionalProperties": false,
-          "description": "Resource requests and limits."
-        },
-        "terminationGracePeriodSeconds": {
-          "description": "Seconds to wait on shutdown.",
-          "type": "integer"
-        },
-        "tolerations": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Tolerations. Empty inherits `defaults.tolerations`."
-        }
-      },
-      "additionalProperties": false
-    },
     "autogravity": {
       "type": "object",
       "properties": {
@@ -1387,7 +1213,7 @@
           "additionalProperties": false
         },
         "enabled": {
-          "description": "Enable Functions and Sites. Needs `storage.device: s3` and `compute.executor.privileged` (see docs/executor.md).",
+          "description": "Enable Functions and Sites. Needs `storage.device: s3`, and runs the executor as a privileged pod in a namespace of its own (see docs/executor.md). Set to false on clusters that forbid privileged pods.",
           "type": "boolean"
         },
         "executor": {
@@ -1553,7 +1379,7 @@
               "type": "string"
             },
             "privileged": {
-              "description": "Run the Docker daemon as a privileged container, which makes it root on its node. Required unless `runtimeClassName` names a runtime that runs Docker without it, such as Sysbox. Give the executor nodes of its own (`nodeSelector`, `tolerations`).",
+              "description": "Run the Docker daemon as a privileged container, which makes it root on its node. Required unless `runtimeClassName` names a runtime that runs Docker without it, such as Sysbox. For production, give the executor nodes of its own (`nodeSelector`, `tolerations`).",
               "type": "boolean"
             },
             "replicaCount": {
@@ -1618,7 +1444,7 @@
           "additionalProperties": false
         },
         "functionsRuntimes": {
-          "description": "Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (node-16.0, php-8.0, python-3.9, ruby-3.0).",
+          "description": "Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (node-16.0, node-22, php-8.0, python-3.9, ruby-3.0).",
           "type": "array",
           "items": {
             "type": "string"
@@ -1836,9 +1662,6 @@
               "type": "string"
             },
             "VITE_CONSOLE_PROFILE": {
-              "type": "string"
-            },
-            "VITE_GROWTH_ENDPOINT": {
               "type": "string"
             }
           },
@@ -3531,7 +3354,7 @@
               "description": "DNS servers (NetworkPolicyPeer) allowed on port 53 wherever egress is restricted: here, for the browser, and for the executor and build Jobs, whose policies are on by default with compute. For NodeLocal DNSCache, add `{ipBlock: {cidr: 169.254.20.10/32}}`. DNS on another port (OpenShift: 5353) needs rules in `extraRules`, `compute.executor.networkPolicy.extraEgress` and `compute.builds.networkPolicy.extraEgress`."
             },
             "enabled": {
-              "description": "Restrict egress to DNS, pods of this release and `extraRules` (needs `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and the DNS server it verifies custom domains against (`_APP_DNS`, 8.8.8.8). With compute, the orchestrator also needs the Kubernetes API. Allow what you use in `extraRules`; the executor is allowed already.",
+              "description": "Restrict egress to DNS, pods of this release and `extraRules` (needs `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and the DNS server it verifies custom domains, migration sources and avatar URLs against (`_APP_DNS` and `_APP_DNS_EXTERNAL`, 8.8.8.8). With compute, the orchestrator also needs the Kubernetes API. Allow what you use in `extraRules`; the executor is allowed already.",
               "type": "boolean"
             },
             "extraRules": {
@@ -3545,7 +3368,7 @@
           "additionalProperties": false
         },
         "enabled": {
-          "description": "Create NetworkPolicies in the release namespace. The built-in datastores then accept only Appwrite pods of this release, the internal services (geo, browser, assistant, autogravity, embedding) only pods of this release, and workers and tasks no incoming traffic. Off by default: any pod in the cluster can reach the built-in PostgreSQL, Redis and ClickHouse, which only their passwords protect. Policies only take effect with a CNI that enforces them.",
+          "description": "Create NetworkPolicies in the release namespace. The built-in datastores then accept only Appwrite pods of this release, the internal services (geo, browser, autogravity, embedding) only pods of this release, and workers and tasks no incoming traffic. Off by default: any pod in the cluster can reach the built-in PostgreSQL, Redis and ClickHouse, which only their passwords protect. Policies only take effect with a CNI that enforces them.",
           "type": "boolean"
         },
         "ingress": {
@@ -4297,7 +4120,7 @@
       "type": "object",
       "properties": {
         "device": {
-          "description": "Where Appwrite stores files (`_APP_STORAGE_DEVICE`).",
+          "description": "Where Appwrite stores files (`_APP_STORAGE_DEVICE`): `s3`, by default the built-in SeaweedFS (`storage.s3.mode`), or `local`, the `/storage` volume. Functions and Sites need `s3`.",
           "type": "string",
           "enum": [
             "local",
@@ -4329,23 +4152,226 @@
                   "type": "string"
                 },
                 "value": {
-                  "description": "Access key ID, set inline. Stored in the chart's Secret.",
+                  "description": "Access key ID, set inline. Stored in the chart's Secret. With `mode: builtin`, generated once when empty.",
                   "type": "string"
                 }
               },
               "additionalProperties": false
             },
             "bucket": {
-              "description": "Bucket (`_APP_STORAGE_S3_BUCKET`). Required with `device: s3`.",
+              "description": "Bucket (`_APP_STORAGE_S3_BUCKET`). The built-in store creates it.",
               "type": "string"
             },
-            "endpoint": {
-              "description": "Endpoint of an S3-compatible store (`_APP_STORAGE_S3_ENDPOINT`), e.g. `https://fsn1.your-objectstorage.com` or `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3. Endpoints and regions per provider: docs/storage.md#s3.",
-              "type": "string"
+            "builtin": {
+              "type": "object",
+              "properties": {
+                "affinity": {
+                  "type": "object",
+                  "description": "Affinity. Empty inherits `defaults.affinity`."
+                },
+                "containerSecurityContext": {
+                  "type": "object",
+                  "description": "Container security context."
+                },
+                "extraContainers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Extra sidecar containers."
+                },
+                "extraEnv": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Extra environment variables, as a list of EnvVar objects."
+                },
+                "extraInitContainers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Extra init containers."
+                },
+                "extraVolumeMounts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Extra volume mounts for the main container."
+                },
+                "extraVolumes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Extra volumes."
+                },
+                "image": {
+                  "type": "object",
+                  "properties": {
+                    "digest": {
+                      "type": "string",
+                      "pattern": "^$|^sha256:[a-f0-9]{64}$",
+                      "description": "Image digest."
+                    },
+                    "pullPolicy": {
+                      "description": "Image pull policy.",
+                      "type": "string",
+                      "enum": [
+                        "Always",
+                        "IfNotPresent",
+                        "Never"
+                      ]
+                    },
+                    "registry": {
+                      "description": "Image registry.",
+                      "type": "string"
+                    },
+                    "repository": {
+                      "description": "Image repository.",
+                      "type": "string"
+                    },
+                    "tag": {
+                      "description": "Image tag.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "nodeSelector": {
+                  "description": "Node selector. Empty inherits `defaults.nodeSelector`.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "persistence": {
+                  "type": "object",
+                  "properties": {
+                    "accessModes": {
+                      "description": "Access modes.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "annotations": {
+                      "description": "Annotations for the PersistentVolumeClaim.",
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "enabled": {
+                      "description": "Persist data in a PersistentVolumeClaim. Without it, every restart loses the files and build output.",
+                      "type": "boolean"
+                    },
+                    "size": {
+                      "description": "Volume size: uploaded files, deployment sources and build output.",
+                      "type": "string"
+                    },
+                    "storageClass": {
+                      "description": "Storage class. Empty uses `global.storageClass`, then the cluster default; `-` requests no class.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "podAnnotations": {
+                  "description": "Pod annotations, merged over `defaults.podAnnotations`.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "podLabels": {
+                  "description": "Pod labels, merged over `defaults.podLabels`.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "podSecurityContext": {
+                  "type": "object",
+                  "description": "Pod security context. The image runs as root by default; the chart runs it as UID 1000."
+                },
+                "priorityClassName": {
+                  "description": "Priority class. Empty inherits `defaults.priorityClassName`.",
+                  "type": "string"
+                },
+                "resources": {
+                  "type": "object",
+                  "properties": {
+                    "requests": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      }
+                    },
+                    "limits": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      }
+                    },
+                    "claims": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  },
+                  "additionalProperties": false,
+                  "description": "Resource requests and limits."
+                },
+                "terminationGracePeriodSeconds": {
+                  "description": "Seconds to wait on shutdown.",
+                  "type": "integer"
+                },
+                "tolerations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "description": "Tolerations. Empty inherits `defaults.tolerations`."
+                },
+                "volumeSizeLimitMB": {
+                  "description": "Size of each SeaweedFS volume file in MB. The store fills the disk with volumes of this size, so keep it well below `persistence.size`.",
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "additionalProperties": false
             },
-            "region": {
-              "description": "Region (`_APP_STORAGE_S3_REGION`).",
-              "type": "string"
+            "external": {
+              "type": "object",
+              "properties": {
+                "endpoint": {
+                  "description": "Endpoint (`_APP_STORAGE_S3_ENDPOINT`), e.g. `https://fsn1.your-objectstorage.com` or `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3. Endpoints and regions per provider: docs/storage.md#s3.",
+                  "type": "string"
+                },
+                "region": {
+                  "description": "Region (`_APP_STORAGE_S3_REGION`).",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "mode": {
+              "description": "`builtin` runs SeaweedFS, an S3-compatible store, in the release; `external` uses `storage.s3.external`. Only used with `device: s3`.",
+              "type": "string",
+              "enum": [
+                "builtin",
+                "external"
+              ]
             },
             "secretAccessKey": {
               "type": "object",
@@ -4359,11 +4385,17 @@
                   "type": "string"
                 },
                 "value": {
-                  "description": "Secret access key, set inline. Stored in the chart's Secret.",
+                  "description": "Secret access key, set inline. Stored in the chart's Secret. With `mode: builtin`, generated once when empty.",
                   "type": "string"
                 }
               },
               "additionalProperties": false
+            },
+            "endpoint": {
+              "description": "No longer supported: setting storage.s3.endpoint fails with what to do instead."
+            },
+            "region": {
+              "description": "No longer supported: setting storage.s3.region fails with what to do instead."
             }
           },
           "additionalProperties": false
@@ -6019,6 +6051,9 @@
         }
       },
       "additionalProperties": false
+    },
+    "assistant": {
+      "description": "No longer supported: setting assistant fails with what to do instead."
     }
   },
   "additionalProperties": false

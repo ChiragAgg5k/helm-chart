@@ -54,7 +54,9 @@ docs: ## Regenerate the chart README with helm-docs
 .PHONY: env-defaults
 env-defaults: ## Regenerate files/env-defaults.yaml from Appwrite's variables.php at APP_VERSION
 	curl -fsSL "https://raw.githubusercontent.com/appwrite/appwrite/$(APP_VERSION)/app/config/variables.php" -o .variables.php
-	php hack/gen-env-defaults.php .variables.php $(APP_VERSION) > $(CHART)/files/env-defaults.yaml
+	@# Into a temporary file first: PHP prints fatal errors to stdout.
+	php hack/gen-env-defaults.php .variables.php $(APP_VERSION) > .env-defaults.yaml || { rm -f .variables.php .env-defaults.yaml; exit 1; }
+	mv .env-defaults.yaml $(CHART)/files/env-defaults.yaml
 	rm -f .variables.php
 
 .PHONY: images

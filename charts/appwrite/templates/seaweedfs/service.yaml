@@ -1,0 +1,3 @@
+{{- if include "appwrite.s3.builtin" . }}
+{{- include "appwrite.service" (dict "root" . "component" "seaweedfs" "service" (dict) "ports" (list (dict "name" "s3" "port" 8333 "targetPort" "s3" "appProtocol" "http"))) }}
+{{- end }}

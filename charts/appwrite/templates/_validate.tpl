@@ -12,7 +12,7 @@ configmap-env.yaml so it also runs under `helm template`.
 {{- $errors = append $errors "appwrite.certificatesEmail is required: the certificates worker refuses to start without it." }}
 {{- end }}
 {{- $hasValue := dict }}
-{{- range $name, $ref := dict "database.password" $v.database.password "redis.password" $v.redis.password "clickhouse.password" $v.clickhouse.password "documentsDb.password" $v.documentsDb.password "vectorsDb.password" $v.vectorsDb.password "smtp.password" $v.smtp.password "storage.s3.accessKeyId" $v.storage.s3.accessKeyId "storage.s3.secretAccessKey" $v.storage.s3.secretAccessKey "assistant.apiKey" $v.assistant.apiKey }}
+{{- range $name, $ref := dict "database.password" $v.database.password "redis.password" $v.redis.password "clickhouse.password" $v.clickhouse.password "documentsDb.password" $v.documentsDb.password "vectorsDb.password" $v.vectorsDb.password "smtp.password" $v.smtp.password "storage.s3.accessKeyId" $v.storage.s3.accessKeyId "storage.s3.secretAccessKey" $v.storage.s3.secretAccessKey }}
 {{- $_ := set $hasValue $name (or $ref.value $ref.secretName) }}
 {{- if and $ref.secretName (not $ref.secretKey) }}
 {{- $errors = append $errors (printf "%s.secretKey is required with %s.secretName: name the key in the Secret." $name $name) }}
@@ -99,8 +99,8 @@ configmap-env.yaml so it also runs under `helm template`.
 {{- if not $storage.s3.bucket }}
 {{- $errors = append $errors "storage.s3.bucket is required when storage.device is s3." }}
 {{- end }}
-{{- if not (and (get $hasValue "storage.s3.accessKeyId") (get $hasValue "storage.s3.secretAccessKey")) }}
-{{- $errors = append $errors "storage.s3.accessKeyId and storage.s3.secretAccessKey need a value or a secretName when storage.device is s3." }}
+{{- if and (eq $storage.s3.mode "external") (not (and (get $hasValue "storage.s3.accessKeyId") (get $hasValue "storage.s3.secretAccessKey"))) }}
+{{- $errors = append $errors "storage.s3.accessKeyId and storage.s3.secretAccessKey need a value or a secretName with storage.s3.mode external." }}
 {{- end }}
 {{- end }}
 {{- if $v.compute.enabled }}
@@ -122,11 +122,8 @@ configmap-env.yaml so it also runs under `helm template`.
 {{- $errors = append $errors "compute.executor.existingSecret is required when compute.secrets.existingSecret or an S3 secretName (storage.s3.accessKeyId, storage.s3.secretAccessKey) is set: the executor runs in another namespace and can't read them. Create a Secret there with the keys executor-secret, s3-access-key and s3-secret-key." }}
 {{- end }}
 {{- if ne $storage.device "s3" }}
-{{- $errors = append $errors "compute.enabled needs storage.device=s3: builds and the executor exchange code and build output through object storage." }}
+{{- $errors = append $errors "compute.enabled needs storage.device=s3: builds and the executor exchange code and build output through object storage. Keep the default (s3, with the built-in object store), or set compute.enabled=false to store files on the local volume without Functions and Sites." }}
 {{- end }}
-{{- end }}
-{{- if and $v.assistant.enabled (not (get $hasValue "assistant.apiKey")) }}
-{{- $errors = append $errors "assistant.enabled needs assistant.apiKey: a value or a secretName." }}
 {{- end }}
 {{- if and $v.mqtt.enabled $v.redis.username }}
 {{- $errors = append $errors "mqtt.enabled doesn't work with redis.username: Appwrite's MQTT server ignores Redis ACL users. Use the default user." }}
@@ -144,9 +141,10 @@ configmap-env.yaml so it also runs under `helm template`.
 {{- if and (eq $v.database.mode "builtin") $v.database.builtin.maxConnections (lt (int $v.database.builtin.maxConnections) (int $v.database.connectionsMax)) }}
 {{- $errors = append $errors (printf "database.builtin.maxConnections (%v) is below database.connectionsMax (%v): Appwrite would open more connections than PostgreSQL accepts." $v.database.builtin.maxConnections $v.database.connectionsMax) }}
 {{- end }}
-{{- range $store, $service := dict "postgresql" "database" "redis" "redis" "clickhouse" "clickhouse" }}
+{{- $statefulSets := dict "postgresql" (eq $v.database.mode "builtin") "redis" (eq $v.redis.mode "builtin") "clickhouse" (eq $v.clickhouse.mode "builtin") "seaweedfs" (include "appwrite.s3.builtin" . | eq "true") }}
+{{- range $store, $builtin := $statefulSets }}
 {{- $name := include "appwrite.componentName" (dict "root" $ "component" $store) }}
-{{- if and (eq (get $v $service).mode "builtin") (gt (len $name) 52) }}
+{{- if and $builtin (gt (len $name) 52) }}
 {{- $errors = append $errors (printf "StatefulSet name %q is longer than 52 characters, which breaks its pods' controller-revision-hash label: use a shorter release name or fullnameOverride." $name) }}
 {{- end }}
 {{- end }}

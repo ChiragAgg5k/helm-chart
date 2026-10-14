@@ -33,8 +33,29 @@ namespace {
         exit(2);
     }
 
-    $categories = require $argv[1];
     $version = $argv[2];
+
+    // variables.php can use Appwrite classes for defaults (2.4.0 and later:
+    // Appwrite\Network\TrustedProxies::DEFAULT). Load them from the same
+    // Appwrite version, as Composer's PSR-4 autoloader would. A class that
+    // needs more than its own file fails loudly.
+    spl_autoload_register(function (string $class) use ($version): void {
+        if (!str_starts_with($class, 'Appwrite\\')) {
+            return;
+        }
+        $path = 'src/' . str_replace('\\', '/', $class) . '.php';
+        $source = @file_get_contents("https://raw.githubusercontent.com/appwrite/appwrite/{$version}/{$path}");
+        if ($source === false) {
+            fwrite(STDERR, "variables.php needs {$class}, and {$path} couldn't be fetched for {$version}\n");
+            exit(1);
+        }
+        $file = tempnam(sys_get_temp_dir(), 'appwrite-class-');
+        file_put_contents($file, $source);
+        require $file;
+        unlink($file);
+    });
+
+    $categories = require $argv[1];
 
     // Secrets and connection strings that may embed credentials. The chart
     // passes these through Kubernetes Secrets instead.

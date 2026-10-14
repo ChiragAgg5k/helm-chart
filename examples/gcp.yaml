@@ -20,7 +20,7 @@
 #   "Allow only SSL connections" can stay on: Appwrite connects with TLS when
 #   offered.
 # - Memorystore for Redis (not Redis Cluster), Standard tier for a replica
-#   with automatic failover, with in-transit encryption off (Appwrite 2.3.0
+#   with automatic failover, with in-transit encryption off (Appwrite 2.5.0
 #   has no Redis TLS). AUTH can stay on: its AUTH string goes in the Secret.
 # - A Cloud Storage bucket, and an HMAC key (Cloud Storage > Settings >
 #   Interoperability) for a service account with Storage Object Admin on the
@@ -79,8 +79,10 @@ clickhouse:
 storage:
   device: s3
   s3:
-    endpoint: https://storage.googleapis.com
-    region: auto
+    mode: external
+    external:
+      endpoint: https://storage.googleapis.com
+      region: auto
     bucket: appwrite-example-com
     accessKeyId:
       secretName: appwrite-external   # s3-access-key: the HMAC key's access ID
@@ -90,6 +92,12 @@ storage:
     size: 1Ti                         # Filestore's smallest instance
     accessModes: [ReadWriteMany]      # Filestore lets the API and workers spread across nodes
     storageClass: standard-rwx
+
+# The executor runs in a namespace of its own and can't read the S3 Secret
+# above, so Functions and Sites stay off here: add
+# functions-existing-secrets.yaml to turn them on.
+compute:
+  enabled: false
 
 smtp:
   host: smtp.sendgrid.net

@@ -12,7 +12,6 @@ sign-in, Sentry for errors. This guide shows how to connect each one.
 | [SMS](#sms) | phone sign-in and SMS verification | `_APP_SMS_*` |
 | [Error tracking](#error-tracking) | sending server errors to Sentry | `_APP_LOGGING_CONFIG` |
 | [Antivirus](storage.md#antivirus) | scanning uploads with ClamAV | `_APP_STORAGE_ANTIVIRUS*` |
-| [Assistant](optional-components.md#assistant) | the console's AI assistant (OpenAI) | `assistant` |
 
 Some settings live in the Appwrite console, per project, not in the chart:
 sign-in providers for your apps' users (OAuth2), Messaging providers
@@ -217,7 +216,8 @@ appwrite:
 Upgrade, then open a function or site in the console and choose *Connect
 Git*. If GitHub shows a delivery error under the app's *Advanced* tab, check
 that `https://<domain>/v1/vcs/github/events` is reachable from outside and
-that the webhook secret matches.
+that the webhook secret matches. The secret is required: Appwrite 2.4.0 and
+later refuse GitHub's events without `_APP_VCS_GITHUB_WEBHOOK_SECRET`.
 
 ### GitLab, Gitea and Bitbucket
 
@@ -309,7 +309,7 @@ appwrite:
     _APP_LOGGING_CONFIG: sentry://<project id>:<key>@<sentry host>/
 ```
 
-Sentry is the only provider Appwrite 2.3.0 supports. When the DSN is
+Sentry is the only provider Appwrite 2.5.0 supports. When the DSN is
 invalid, the pods log `Invalid _APP_LOGGING_CONFIG, error reporting is
 disabled` at start-up. Logs go to stdout regardless, as JSON by default
 (`appwrite.logFormat`), ready for your log pipeline.

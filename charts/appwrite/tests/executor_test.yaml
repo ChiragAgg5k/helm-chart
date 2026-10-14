@@ -16,7 +16,8 @@ values:
   - values/required.yaml
 set:
   storage.device: s3
-  storage.s3.endpoint: http://10.1.2.3:9000
+  storage.s3.mode: external
+  storage.s3.external.endpoint: http://10.1.2.3:9000
   storage.s3.bucket: files
   storage.s3.accessKeyId.value: key/+
   storage.s3.secretAccessKey.value: secret
@@ -195,7 +196,7 @@ tests:
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
-          content: {name: EXECUTOR_IMAGE, value: docker.io/openruntimes/executor:0.29.0}
+          content: {name: EXECUTOR_IMAGE, value: docker.io/openruntimes/executor:1.1.2}
       - contains:
           path: spec.template.spec.containers[0].env
           content: {name: OPR_EXECUTOR_IMAGES, value: "openruntimes/node:v5-22,openruntimes/python-ml:v5-3.11,openruntimes/static:v5-1"}
@@ -228,8 +229,9 @@ tests:
   - it: reaches an HTTPS S3 endpoint
     template: templates/executor/deployment.yaml
     set:
-      storage.s3.endpoint: https://s3.example.com
-      storage.s3.region: eu-central
+      storage.s3.mode: external
+      storage.s3.external.endpoint: https://s3.example.com
+      storage.s3.external.region: eu-central
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
@@ -238,8 +240,9 @@ tests:
   - it: names the bucket in the hostname on AWS S3
     template: templates/executor/deployment.yaml
     set:
-      storage.s3.endpoint: ""
-      storage.s3.region: eu-central-1
+      storage.s3.mode: external
+      storage.s3.external.endpoint: ""
+      storage.s3.external.region: eu-central-1
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env

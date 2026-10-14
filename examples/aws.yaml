@@ -15,7 +15,7 @@
 #     CREATE EXTENSION postgis; CREATE EXTENSION vector; CREATE EXTENSION pg_trgm;
 #   rds.force_ssl can stay on: Appwrite connects with TLS when offered.
 # - ElastiCache for Valkey or Redis OSS, node-based, cluster mode disabled,
-#   in-transit encryption off (Appwrite 2.3.0 has no Redis TLS). ElastiCache
+#   in-transit encryption off (Appwrite 2.5.0 has no Redis TLS). ElastiCache
 #   only allows an AUTH token with in-transit encryption, so there's no
 #   password: restrict it with a security group.
 # - An S3 bucket and an IAM user with an access key for it. Appwrite doesn't
@@ -69,8 +69,10 @@ clickhouse:
 storage:
   device: s3
   s3:
-    endpoint: ""                      # empty: AWS S3
-    region: eu-west-1
+    mode: external
+    external:
+      endpoint: ""                      # empty: AWS S3
+      region: eu-west-1
     bucket: appwrite-example-com
     accessKeyId:
       secretName: appwrite-external
@@ -80,6 +82,12 @@ storage:
     size: 5Gi
     accessModes: [ReadWriteMany]      # EFS lets the API and workers spread across nodes
     storageClass: efs-sc
+
+# The executor runs in a namespace of its own and can't read the S3 Secret
+# above, so Functions and Sites stay off here: add
+# functions-existing-secrets.yaml to turn them on.
+compute:
+  enabled: false
 
 smtp:
   host: email-smtp.eu-west-1.amazonaws.com

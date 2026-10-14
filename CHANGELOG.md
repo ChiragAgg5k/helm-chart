@@ -8,6 +8,46 @@ annotation in `charts/appwrite/Chart.yaml`.
 
 ## [Unreleased]
 
+### Changed
+
+- Functions and Sites are on by default: `compute.enabled` and
+  `compute.executor.privileged` default to `true`, so a plain install runs
+  the executor as a privileged pod in a namespace of its own. Set
+  `compute.enabled: false` on clusters that forbid privileged pods.
+- Files are stored in object storage by default: `storage.device` defaults
+  to `s3`, served by the built-in SeaweedFS. To keep 1.0.0's behaviour, set
+  `storage.device: local` and `compute.enabled: false`.
+- Appwrite 2.5.0, with console 1.2.74, executor 1.1.2, browser 0.3.6 and
+  geo 0.3.2, and the new trusted-proxy, internal-address and DNS settings in
+  the environment defaults ([networking.md](docs/networking.md#tls-and-forcehttps)).
+- External S3 settings move to `storage.s3.external.endpoint` and
+  `storage.s3.external.region`, with `storage.s3.mode: external`. Setting
+  the old keys fails with where they went.
+- ClickHouse drops its per-second metric, trace and text logs and gives
+  tables left behind by a config change a TTL, as Appwrite 2.4.0 does.
+- CI upgrades from the published chart 1.0.0 with default values.
+
+### Added
+
+- Built-in object storage: SeaweedFS as a single-replica StatefulSet
+  (`storage.s3.mode: builtin`), with generated keys, the bucket created on
+  start, and a NetworkPolicy that admits only Appwrite, the orchestrator,
+  builds and the executor ([storage.md](docs/storage.md#built-in-object-storage)).
+- Troubleshooting for deployments that fail with an internal error while
+  Functions and Sites are off.
+
+### Removed
+
+- The assistant: Appwrite removed it in 2.4.0. Setting `assistant.*` fails
+  with that message.
+
+### Fixed
+
+- Site screenshots: the browser gets the API Service in `ALLOWED_HOSTS`, as
+  browser 0.3.5 and later require for private addresses.
+- `make env-defaults` works with Appwrite 2.4.0 and later, and no longer
+  leaves an error message in `files/env-defaults.yaml` when it fails.
+
 ## [1.0.0] - 2026-10-13
 
 First release of the chart, for Appwrite 2.3.0.

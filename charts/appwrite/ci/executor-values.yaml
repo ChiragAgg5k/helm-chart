@@ -7,7 +7,9 @@ appwrite:
 storage:
   device: s3
   s3:
-    endpoint: http://10.0.0.30:8333
+    mode: external
+    external:
+      endpoint: http://10.0.0.30:8333
     bucket: appwrite
     accessKeyId:
       value: appwrite

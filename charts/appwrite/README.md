@@ -1,6 +1,6 @@
 # Appwrite Helm chart
 
-![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.3.0](https://img.shields.io/badge/AppVersion-2.3.0-informational?style=flat-square)
+![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.5.0](https://img.shields.io/badge/AppVersion-2.5.0-informational?style=flat-square)
 
 Appwrite, the open-source backend platform, on Kubernetes. Deploys the API, console, realtime, workers and schedulers with optional built-in PostgreSQL, Redis and ClickHouse.
 
@@ -16,9 +16,11 @@ Appwrite, the open-source backend platform, on Kubernetes. Deploys the API, cons
 - Ingress or Gateway API routes for the API, console, realtime, function and
   site previews and custom domains.
 - Worker topologies from one combined worker to one Deployment per queue.
-- Functions and Sites in the cluster: builds run as unprivileged Jobs in their
-  own namespace, executions on an executor with its own Docker-in-Docker
-  daemon in another namespace (a privileged pod you opt into).
+- Functions and Sites in the cluster, on by default: builds run as
+  unprivileged Jobs in their own namespace, executions on an executor with
+  its own Docker-in-Docker daemon in another namespace (a privileged pod; set
+  `compute.enabled=false` where that isn't allowed), on built-in S3-compatible
+  object storage.
 - Credentials generated once and kept, data migrations on upgrade, and guards
   against changing the encryption key or downgrading.
 
@@ -28,6 +30,8 @@ Appwrite, the open-source backend platform, on Kubernetes. Deploys the API, cons
 - Helm 4, or Helm 3.18 or later
 - An ingress controller or a Gateway API implementation. Appwrite serves the
   console and the API on one hostname and needs `/v1` routed to the API.
+- For Functions and Sites (on by default), a cluster that admits a privileged
+  pod in the executor's namespace, or `compute.enabled=false`.
 - For HTTPS: cert-manager, or certificates you provide
 
 ## Quick start
@@ -60,7 +64,7 @@ kubectl -n appwrite get secret appwrite -o jsonpath='{.data._APP_OPENSSL_KEY_V1}
 
 To try Appwrite on a laptop first, or for a step-by-step install, see
 [Getting started](https://github.com/appwrite/helm-chart/blob/main/docs/getting-started.md).
-To install a branch, or before the first release is on `ghcr.io`, use
+To install a branch, use
 `./charts/appwrite` from a clone in place of the `oci://` reference
 ([installing from source](https://github.com/appwrite/helm-chart/blob/main/docs/getting-started.md#installing-from-source)).
 
@@ -164,7 +168,7 @@ See the [architecture guide](https://github.com/appwrite/helm-chart/blob/main/do
 - **Highly available datastores.** The built-in ones are single replicas. Use
   managed services or operators in production
   ([guide](https://github.com/appwrite/helm-chart/blob/main/docs/external-databases.md)).
-- **Metrics.** Appwrite 2.3.0 exposes no Prometheus metrics.
+- **Metrics.** Appwrite 2.5.0 exposes no Prometheus metrics.
 
 ## Documentation
 
@@ -178,7 +182,7 @@ See the [architecture guide](https://github.com/appwrite/helm-chart/blob/main/do
 | [Storage](https://github.com/appwrite/helm-chart/blob/main/docs/storage.md) | Volumes, ReadWriteMany, S3, antivirus |
 | [Email, Git and other integrations](https://github.com/appwrite/helm-chart/blob/main/docs/integrations.md) | SMTP, GitHub App, console sign-in, SMS, Sentry |
 | [Functions and Sites](https://github.com/appwrite/helm-chart/blob/main/docs/executor.md) | Builds as Jobs and the executor on Docker-in-Docker |
-| [Optional components](https://github.com/appwrite/helm-chart/blob/main/docs/optional-components.md) | Browser, assistant, autogravity, embedding, MQTT |
+| [Optional components](https://github.com/appwrite/helm-chart/blob/main/docs/optional-components.md) | Browser, autogravity, embedding, MQTT |
 | [Security](https://github.com/appwrite/helm-chart/blob/main/docs/security.md) | Pod security, credentials, NetworkPolicies, signatures |
 | [Upgrading](https://github.com/appwrite/helm-chart/blob/main/docs/upgrading.md) | Versions, migrations, rollbacks |
 | [Backup and restore](https://github.com/appwrite/helm-chart/blob/main/docs/backup-restore.md) | What to back up and how |
@@ -457,18 +461,45 @@ Where files go (the volume or S3), and the `/storage` volume.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| storage.device | string | `"local"` | Where Appwrite stores files (`_APP_STORAGE_DEVICE`). |
+| storage.device | string | `"s3"` | Where Appwrite stores files (`_APP_STORAGE_DEVICE`): `s3`, by default the built-in SeaweedFS (`storage.s3.mode`), or `local`, the `/storage` volume. Functions and Sites need `s3`. |
 | storage.limit | int | `30000000` | Maximum file size in bytes (`_APP_STORAGE_LIMIT`). |
 | storage.previewLimit | int | `20000000` | Maximum size in bytes of files Appwrite renders previews for (`_APP_STORAGE_PREVIEW_LIMIT`). |
 | storage.s3.accessKeyId.secretKey | string | `"s3-access-key"` | Key in the Secret. |
 | storage.s3.accessKeyId.secretName | string | `""` | Existing Secret holding the access key id. Takes precedence over `value`. |
-| storage.s3.accessKeyId.value | string | `""` | Access key ID, set inline. Stored in the chart's Secret. |
-| storage.s3.bucket | string | `""` | Bucket (`_APP_STORAGE_S3_BUCKET`). Required with `device: s3`. |
-| storage.s3.endpoint | string | `""` | Endpoint of an S3-compatible store (`_APP_STORAGE_S3_ENDPOINT`), e.g. `https://fsn1.your-objectstorage.com` or `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3. Endpoints and regions per provider: docs/storage.md#s3. |
-| storage.s3.region | string | `"us-east-1"` | Region (`_APP_STORAGE_S3_REGION`). |
+| storage.s3.accessKeyId.value | string | `""` | Access key ID, set inline. Stored in the chart's Secret. With `mode: builtin`, generated once when empty. |
+| storage.s3.bucket | string | `"appwrite"` | Bucket (`_APP_STORAGE_S3_BUCKET`). The built-in store creates it. |
+| storage.s3.builtin.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
+| storage.s3.builtin.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
+| storage.s3.builtin.extraContainers | list | `[]` | Extra sidecar containers. |
+| storage.s3.builtin.extraEnv | list | `[]` | Extra environment variables, as a list of EnvVar objects. |
+| storage.s3.builtin.extraInitContainers | list | `[]` | Extra init containers. |
+| storage.s3.builtin.extraVolumeMounts | list | `[]` | Extra volume mounts for the main container. |
+| storage.s3.builtin.extraVolumes | list | `[]` | Extra volumes. |
+| storage.s3.builtin.image.digest | string | `""` | Image digest. |
+| storage.s3.builtin.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
+| storage.s3.builtin.image.registry | string | `"docker.io"` | Image registry. |
+| storage.s3.builtin.image.repository | string | `"chrislusf/seaweedfs"` | Image repository. |
+| storage.s3.builtin.image.tag | string | `"4.48"` | Image tag. |
+| storage.s3.builtin.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
+| storage.s3.builtin.persistence.accessModes | list | `["ReadWriteOnce"]` | Access modes. |
+| storage.s3.builtin.persistence.annotations | object | `{}` | Annotations for the PersistentVolumeClaim. |
+| storage.s3.builtin.persistence.enabled | bool | `true` | Persist data in a PersistentVolumeClaim. Without it, every restart loses the files and build output. |
+| storage.s3.builtin.persistence.size | string | `"20Gi"` | Volume size: uploaded files, deployment sources and build output. |
+| storage.s3.builtin.persistence.storageClass | string | `""` | Storage class. Empty uses `global.storageClass`, then the cluster default; `-` requests no class. |
+| storage.s3.builtin.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
+| storage.s3.builtin.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
+| storage.s3.builtin.podSecurityContext | object | `{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod security context. The image runs as root by default; the chart runs it as UID 1000. |
+| storage.s3.builtin.priorityClassName | string | `""` | Priority class. Empty inherits `defaults.priorityClassName`. |
+| storage.s3.builtin.resources | object | `{"limits":{"memory":"1Gi"},"requests":{"cpu":"50m","memory":"128Mi"}}` | Resource requests and limits. |
+| storage.s3.builtin.terminationGracePeriodSeconds | int | `60` | Seconds to wait on shutdown. |
+| storage.s3.builtin.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
+| storage.s3.builtin.volumeSizeLimitMB | int | `1024` | Size of each SeaweedFS volume file in MB. The store fills the disk with volumes of this size, so keep it well below `persistence.size`. |
+| storage.s3.external.endpoint | string | `""` | Endpoint (`_APP_STORAGE_S3_ENDPOINT`), e.g. `https://fsn1.your-objectstorage.com` or `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3. Endpoints and regions per provider: docs/storage.md#s3. |
+| storage.s3.external.region | string | `"us-east-1"` | Region (`_APP_STORAGE_S3_REGION`). |
+| storage.s3.mode | string | `"builtin"` | `builtin` runs SeaweedFS, an S3-compatible store, in the release; `external` uses `storage.s3.external`. Only used with `device: s3`. |
 | storage.s3.secretAccessKey.secretKey | string | `"s3-secret-key"` | Key in the Secret. |
 | storage.s3.secretAccessKey.secretName | string | `""` | Existing Secret holding the secret access key. Takes precedence over `value`. |
-| storage.s3.secretAccessKey.value | string | `""` | Secret access key, set inline. Stored in the chart's Secret. |
+| storage.s3.secretAccessKey.value | string | `""` | Secret access key, set inline. Stored in the chart's Secret. With `mode: builtin`, generated once when empty. |
 | storage.volume.accessModes | list | `["ReadWriteOnce"]` | Access modes. Use ReadWriteMany to spread API and worker pods across nodes. They mount `/storage` even with S3 storage, so a ReadWriteOnce volume pins them to one node (and the API gets no PodDisruptionBudget, which would block drains). |
 | storage.volume.annotations | object | `{}` | Annotations for the PersistentVolumeClaim. |
 | storage.volume.colocateReadWriteOnce | bool | `true` | With a ReadWriteOnce volume, schedule every pod that mounts it on the same node so the volume can be attached. |
@@ -553,7 +584,7 @@ The SMTP server Appwrite sends mail through.
 | console.autoscaling.targetMemoryUtilizationPercentage | string | `""` | Target average memory utilisation, in percent. Empty disables the metric. |
 | console.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
 | console.enabled | bool | `true` | Deploy the console. |
-| console.env | object | `{"APPWRITE_ENDPOINT_SAME_ORIGIN":"true","VITE_CONSOLE_PROFILE":"self-hosted","VITE_GROWTH_ENDPOINT":"https://growth.appwrite.io/v1"}` | Environment variables for the console, as a map. |
+| console.env | object | `{"APPWRITE_ENDPOINT_SAME_ORIGIN":"true","VITE_CONSOLE_PROFILE":"self-hosted"}` | Environment variables for the console, as a map. |
 | console.extraContainers | list | `[]` | Extra sidecar containers. |
 | console.extraEnv | list | `[]` | Extra environment variables, as a list of EnvVar objects. |
 | console.extraInitContainers | list | `[]` | Extra init containers. |
@@ -563,7 +594,7 @@ The SMTP server Appwrite sends mail through.
 | console.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | console.image.registry | string | `"docker.io"` | Image registry. |
 | console.image.repository | string | `"appwrite/new"` | Image repository. |
-| console.image.tag | string | `"1.1.159-self-hosted"` | Image tag. Pinned to the console that ships with the chart's appVersion. |
+| console.image.tag | string | `"1.2.74-self-hosted"` | Image tag. Pinned to the console that ships with the chart's appVersion. |
 | console.livenessProbe.enabled | bool | `true` | Enable the liveness probe. |
 | console.livenessProbe.failureThreshold | int | `3` | Consecutive failures before the probe counts as failed. |
 | console.livenessProbe.periodSeconds | int | `20` | Seconds between probes. |
@@ -606,7 +637,7 @@ The SMTP server Appwrite sends mail through.
 | geo.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | geo.image.registry | string | `"docker.io"` | Image registry. |
 | geo.image.repository | string | `"appwrite/geo"` | Image repository. |
-| geo.image.tag | string | `"0.3.1"` | Image tag. |
+| geo.image.tag | string | `"0.3.2"` | Image tag. |
 | geo.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
 | geo.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
 | geo.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
@@ -850,7 +881,7 @@ The build orchestrator and the executor.
 | compute.builds.sidecarImage.repository | string | `"open-runtimes/orchestrator/job-sidecar"` | Image repository of the sidecar that moves sources, outputs and caches for each build. |
 | compute.builds.sidecarImage.tag | string | `"2.2.3"` | Image tag. |
 | compute.builds.tolerations | list | `[]` | Tolerations for build pods. |
-| compute.enabled | bool | `false` | Enable Functions and Sites. Needs `storage.device: s3` and `compute.executor.privileged` (see docs/executor.md). |
+| compute.enabled | bool | `true` | Enable Functions and Sites. Needs `storage.device: s3`, and runs the executor as a privileged pod in a namespace of its own (see docs/executor.md). Set to false on clusters that forbid privileged pods. |
 | compute.executor.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
 | compute.executor.createNamespace | bool | `true` | Create the namespace, labelled for the `privileged` Pod Security Standard. Set to false to create it yourself. |
 | compute.executor.dind.addressPool | string | `"198.18.0.0/15"` | Addresses of the Docker daemon's networks, split into /24s: its bridge and the runtimes' network. They shadow anything the executor and runtimes would reach in the same range, so it must not overlap the S3 endpoint, the cluster or your networks. Docker's own default, 172.17.0.0/16 onwards, often does; this one is reserved for benchmarking (RFC 2544) and routed nowhere. |
@@ -866,7 +897,7 @@ The build orchestrator and the executor.
 | compute.executor.image.digest | string | `""` | Image digest. |
 | compute.executor.image.registry | string | `"docker.io"` | Image registry. The executor image is pulled by the Docker daemon in the pod, not by the kubelet, so image pull secrets don't apply to it. |
 | compute.executor.image.repository | string | `"openruntimes/executor"` | Image repository. |
-| compute.executor.image.tag | string | `"0.29.0"` | Image tag. |
+| compute.executor.image.tag | string | `"1.1.2"` | Image tag. |
 | compute.executor.images | list | `[]` | Runtime images to pull when the executor starts (`OPR_EXECUTOR_IMAGES`). Empty derives them from `functionsRuntimes` and `sitesRuntimes`, e.g. `node-22` becomes `openruntimes/node:v5-22`; with both of those empty too, nothing is pulled ahead of the first executions. |
 | compute.executor.inactiveThreshold | int | `60` | Seconds a runtime may stay idle before it's removed (`OPR_EXECUTOR_INACTIVE_THRESHOLD`). The executor removes idle runtimes in its maintenance pass, which the chart runs hourly (`OPR_EXECUTOR_MAINTENANCE_INTERVAL`), so a runtime can stay up to an hour longer. |
 | compute.executor.namespace | string | `""` | Namespace of the executor. Defaults to `<release namespace>-executor`. Use a different one per release when several releases share a namespace. |
@@ -877,14 +908,14 @@ The build orchestrator and the executor.
 | compute.executor.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
 | compute.executor.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
 | compute.executor.priorityClassName | string | `""` | Priority class. Empty inherits `defaults.priorityClassName`. |
-| compute.executor.privileged | bool | `false` | Run the Docker daemon as a privileged container, which makes it root on its node. Required unless `runtimeClassName` names a runtime that runs Docker without it, such as Sysbox. Give the executor nodes of its own (`nodeSelector`, `tolerations`). |
+| compute.executor.privileged | bool | `true` | Run the Docker daemon as a privileged container, which makes it root on its node. Required unless `runtimeClassName` names a runtime that runs Docker without it, such as Sysbox. For production, give the executor nodes of its own (`nodeSelector`, `tolerations`). |
 | compute.executor.replicaCount | int | `1` | Executor replicas. Each has its own Docker daemon: a runtime starts on the replica an execution reaches and stays there until it's idle. |
 | compute.executor.resources | object | `{"limits":{"memory":"4Gi"},"requests":{"cpu":"500m","memory":"1Gi"}}` | Resources of the Docker daemon container, which runs the executor and every runtime: size it for the executions you expect. |
 | compute.executor.runtimeClassName | string | `""` | RuntimeClass of executor pods, e.g. `sysbox-runc`. |
 | compute.executor.terminationGracePeriodSeconds | int | `60` | Seconds to wait on shutdown. |
 | compute.executor.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
 | compute.executor.topologySpreadConstraints | list | `[]` | Topology spread constraints. Empty inherits `defaults.topologySpreadConstraints`, or spreads replicas across nodes. |
-| compute.functionsRuntimes | list | `[]` | Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (node-16.0, php-8.0, python-3.9, ruby-3.0). |
+| compute.functionsRuntimes | list | `[]` | Function runtimes to enable (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (node-16.0, node-22, php-8.0, python-3.9, ruby-3.0). |
 | compute.orchestrator.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
 | compute.orchestrator.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
 | compute.orchestrator.image.digest | string | `""` | Image digest. |
@@ -910,30 +941,6 @@ The build orchestrator and the executor.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| assistant.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
-| assistant.apiKey.secretKey | string | `"openai-api-key"` | Key in the Secret. |
-| assistant.apiKey.secretName | string | `""` | Existing Secret holding the OpenAI API key. Takes precedence over `value`. |
-| assistant.apiKey.value | string | `""` | OpenAI API key (`_APP_ASSISTANT_OPENAI_API_KEY`), set inline. Stored in the chart's Secret. |
-| assistant.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
-| assistant.enabled | bool | `false` | Deploy the assistant. |
-| assistant.extraContainers | list | `[]` | Extra sidecar containers. |
-| assistant.extraEnv | list | `[]` | Extra environment variables, as a list of EnvVar objects. |
-| assistant.extraInitContainers | list | `[]` | Extra init containers. |
-| assistant.extraVolumeMounts | list | `[]` | Extra volume mounts for the main container. |
-| assistant.extraVolumes | list | `[]` | Extra volumes. |
-| assistant.image.digest | string | `""` | Image digest. |
-| assistant.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
-| assistant.image.registry | string | `"docker.io"` | Image registry. |
-| assistant.image.repository | string | `"appwrite/assistant"` | Image repository. |
-| assistant.image.tag | string | `"0.8.4"` | Image tag. |
-| assistant.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
-| assistant.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
-| assistant.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
-| assistant.podSecurityContext | object | `{"fsGroup":1000,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod security context. |
-| assistant.priorityClassName | string | `""` | Priority class. Empty inherits `defaults.priorityClassName`. |
-| assistant.resources | object | `{"limits":{"memory":"512Mi"},"requests":{"cpu":"20m","memory":"128Mi"}}` | Resource requests and limits. |
-| assistant.terminationGracePeriodSeconds | int | `30` | Seconds to wait on shutdown. |
-| assistant.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
 | autogravity.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
 | autogravity.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
 | autogravity.enabled | bool | `false` | Deploy autogravity. |
@@ -968,7 +975,7 @@ The build orchestrator and the executor.
 | browser.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | browser.image.registry | string | `"docker.io"` | Image registry. |
 | browser.image.repository | string | `"appwrite/browser"` | Image repository. |
-| browser.image.tag | string | `"0.3.4"` | Image tag. |
+| browser.image.tag | string | `"0.3.6"` | Image tag. |
 | browser.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
 | browser.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
 | browser.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
@@ -1046,9 +1053,9 @@ Prometheus Operator objects for the datastores' metrics.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | networkPolicy.egress.dns | list | `[{"namespaceSelector":{},"podSelector":{"matchLabels":{"k8s-app":"kube-dns"}}}]` | DNS servers (NetworkPolicyPeer) allowed on port 53 wherever egress is restricted: here, for the browser, and for the executor and build Jobs, whose policies are on by default with compute. For NodeLocal DNSCache, add `{ipBlock: {cidr: 169.254.20.10/32}}`. DNS on another port (OpenShift: 5353) needs rules in `extraRules`, `compute.executor.networkPolicy.extraEgress` and `compute.builds.networkPolicy.extraEgress`. |
-| networkPolicy.egress.enabled | bool | `false` | Restrict egress to DNS, pods of this release and `extraRules` (needs `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and the DNS server it verifies custom domains against (`_APP_DNS`, 8.8.8.8). With compute, the orchestrator also needs the Kubernetes API. Allow what you use in `extraRules`; the executor is allowed already. |
+| networkPolicy.egress.enabled | bool | `false` | Restrict egress to DNS, pods of this release and `extraRules` (needs `networkPolicy.enabled`). Off by default: Appwrite calls webhooks, SMTP servers, OAuth providers, S3, and the DNS server it verifies custom domains, migration sources and avatar URLs against (`_APP_DNS` and `_APP_DNS_EXTERNAL`, 8.8.8.8). With compute, the orchestrator also needs the Kubernetes API. Allow what you use in `extraRules`; the executor is allowed already. |
 | networkPolicy.egress.extraRules | list | `[]` | Extra egress rules (NetworkPolicyEgressRule) when egress is restricted. |
-| networkPolicy.enabled | bool | `false` | Create NetworkPolicies in the release namespace. The built-in datastores then accept only Appwrite pods of this release, the internal services (geo, browser, assistant, autogravity, embedding) only pods of this release, and workers and tasks no incoming traffic. Off by default: any pod in the cluster can reach the built-in PostgreSQL, Redis and ClickHouse, which only their passwords protect. Policies only take effect with a CNI that enforces them. |
+| networkPolicy.enabled | bool | `false` | Create NetworkPolicies in the release namespace. The built-in datastores then accept only Appwrite pods of this release, the internal services (geo, browser, autogravity, embedding) only pods of this release, and workers and tasks no incoming traffic. Off by default: any pod in the cluster can reach the built-in PostgreSQL, Redis and ClickHouse, which only their passwords protect. Policies only take effect with a CNI that enforces them. |
 | networkPolicy.ingress.from | list | `[]` | Sources (NetworkPolicyPeer) allowed to reach the API, console, realtime and MQTT, typically your ingress controller or Gateway. Empty allows any source. Pods of this release can always reach the API, console and realtime. |
 | networkPolicy.metrics.from | list | `[]` | Sources (NetworkPolicyPeer), typically Prometheus, allowed to scrape the datastores' metrics ports (`<service>.builtin.metrics.enabled`). Empty allows none. |
 

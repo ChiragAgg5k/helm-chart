@@ -81,8 +81,10 @@ clickhouse:
 storage:
   device: s3
   s3:
-    endpoint: https://s3.example.com
-    region: us-east-1
+    mode: external
+    external:
+      endpoint: https://s3.example.com
+      region: us-east-1
     bucket: appwrite
     accessKeyId:
       secretName: appwrite-s3
@@ -92,6 +94,11 @@ storage:
     size: 5Gi                         # certificates and scratch files, with S3
     accessModes: [ReadWriteMany]      # lets the API and workers spread across nodes
     storageClass: efs-sc              # any class that supports ReadWriteMany
+
+# Functions and Sites need their own credentials and a privileged executor on
+# nodes of its own: add functions-existing-secrets.yaml to turn them on.
+compute:
+  enabled: false
 
 smtp:
   host: email-smtp.eu-west-1.amazonaws.com

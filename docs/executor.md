@@ -13,10 +13,10 @@ unprivileged Jobs. The executor creates a container per runtime through a
 Docker daemon, and Kubernetes has no Docker daemon to offer, so the chart
 gives each executor pod its own (Docker-in-Docker). That daemon runs as a
 **privileged container: root on its node**. That is why the executor gets a
-namespace of its own, why you have to accept it explicitly, and why it should
-get nodes of its own. Where privileged pods aren't allowed (GKE Autopilot,
-EKS on Fargate, a policy that forbids them), [Sysbox](#without-a-privileged-container)
-runs the daemon without it.
+namespace of its own, and why it should get nodes of its own. Where
+privileged pods aren't allowed (GKE Autopilot, EKS on Fargate, a policy that
+forbids them), [Sysbox](#without-a-privileged-container) runs the daemon
+without it, or set `compute.enabled: false`.
 
 ```mermaid
 flowchart LR
@@ -41,13 +41,16 @@ flowchart LR
   executor -- "build output" --> s3
 ```
 
-Functions and Sites are off by default (`compute.enabled: false`). The rest
-of Appwrite works without them; deployments of functions and sites stay in
-`waiting` and executions fail.
+Functions and Sites are on by default, on the
+[built-in object storage](storage.md#built-in-object-storage). With
+`compute.enabled: false`, the rest of Appwrite works, but creating a function
+or site fails
+([troubleshooting.md](troubleshooting.md#deployments-fail-with-an-internal-error)).
 
 ## Requirements
 
-- **S3 storage** (`storage.device: s3`, see [storage.md](storage.md)).
+- **S3 storage** (`storage.device: s3`, the default, see
+  [storage.md](storage.md)): the built-in object storage or your own store.
   Builds and the executor exchange code and build output through the bucket.
   The chart refuses to render `compute.enabled` without it.
 - **Nodes that may run a privileged pod** for the executor, ideally
@@ -67,6 +70,10 @@ of Appwrite works without them; deployments of functions and sites stay in
 
 ## 1. Configure the chart
 
+A plain install already runs both, with the built-in object storage and the
+executor on any node. For production, pin the executor to nodes of its own,
+use an S3 store with redundancy, and pick the runtimes you need:
+
 ```yaml
 appwrite:
   domain: appwrite.example.com
@@ -74,8 +81,10 @@ appwrite:
 storage:
   device: s3
   s3:
-    endpoint: https://s3.example.com   # empty for AWS S3
-    region: us-east-1
+    mode: external
+    external:
+      endpoint: https://s3.example.com   # empty for AWS S3
+      region: us-east-1
     bucket: appwrite
     accessKeyId:
       value: <access key>
@@ -83,9 +92,8 @@ storage:
       value: <secret key>
 
 compute:
-  enabled: true
   executor:
-    privileged: true            # Docker-in-Docker: root on the node
+    privileged: true            # the default; Docker-in-Docker: root on the node
     nodeSelector:
       workload: executor
     tolerations:
@@ -115,7 +123,7 @@ instead ([existing Secrets](#existing-secrets)).
 | --- | --- | --- |
 | `compute.enabled` | `false` | Deploys the orchestrator and the executor and turns on Functions and Sites. |
 | `compute.executor.privileged` | `false` | Accepts the privileged Docker daemon. Required unless `compute.executor.runtimeClassName` is set. |
-| `compute.functionsRuntimes` | `[]` | Function runtimes (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (`node-16.0`, `php-8.0`, `python-3.9`, `ruby-3.0`). |
+| `compute.functionsRuntimes` | `[]` | Function runtimes (`_APP_FUNCTIONS_RUNTIMES`). Empty keeps the Docker installer's list (`node-16.0`, `node-22`, `php-8.0`, `python-3.9`, `ruby-3.0`). |
 | `compute.sitesRuntimes` | `[]` | Site runtimes (`_APP_SITES_RUNTIMES`). Empty keeps Appwrite's default list. |
 | `compute.executor.nodeSelector`, `tolerations` | inherit `defaults` | Where executor pods run. |
 
@@ -498,9 +506,9 @@ compute:
 The same applies to the executor: add the same ranges to
 `compute.executor.networkPolicy.deniedCIDRs`.
 
-The build's sidecar uploads the output straight to S3. When
-`storage.s3.endpoint` is an IP address, the chart allows it; when
-it's a hostname on a private network, add a rule (and the same rule under
+The build's sidecar uploads the output straight to S3. The chart allows the
+built-in object store, and an external `storage.s3.external.endpoint` that
+is an IP address; when it's a hostname on a private network, add a rule (and the same rule under
 `compute.executor.networkPolicy.extraEgress`, which reads build output from
 S3):
 

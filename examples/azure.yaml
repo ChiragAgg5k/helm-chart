@@ -9,9 +9,10 @@
 #
 # Files are stored on the Azure Files volume, not in object storage: Azure
 # Blob Storage has no S3 API, and Appwrite only speaks S3. Functions and
-# Sites need S3, so for them set storage.device: s3 with another
-# S3-compatible store (docs/storage.md#s3), then add
-# functions-existing-secrets.yaml. A translating proxy such as S3Proxy can put
+# Sites need S3, so this file turns them off. For them, drop storage.device
+# and compute.enabled below to use the chart's built-in object storage, or
+# set storage.device: s3 with another S3-compatible store
+# (docs/storage.md#s3), then add functions-existing-secrets.yaml. A translating proxy such as S3Proxy can put
 # an S3 API in front of Blob Storage; it isn't tested with Appwrite. MinIO's
 # gateway mode, which did the same, was removed in 2022. Decide before going
 # live: switching the device later doesn't move stored files.
@@ -27,7 +28,7 @@
 #   require_secure_transport can stay on: Appwrite connects with TLS when
 #   offered.
 # - Azure Cache for Redis, Standard tier or higher for a replica, with the
-#   non-TLS port (6379) turned on: it's off by default, and Appwrite 2.3.0 has
+#   non-TLS port (6379) turned on: it's off by default, and Appwrite 2.5.0 has
 #   no Redis TLS. An access key is the password. Keep it on a private
 #   endpoint. Azure Cache for Redis retires on 30 September 2028; for Azure
 #   Managed Redis, choose the Non-clustered policy, turn on Non-TLS access and
@@ -81,6 +82,9 @@ clickhouse:
     secretName: appwrite-external
   external:
     url: https://abc123.germanywestcentral.azure.clickhouse.cloud:8443
+
+compute:
+  enabled: false                      # needs S3: see the top of this file
 
 storage:
   device: local                       # Azure Files below; S3 for Functions and Sites

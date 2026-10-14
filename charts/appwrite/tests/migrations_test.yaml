@@ -19,7 +19,7 @@ tests:
     asserts:
       - equal:
           path: metadata.annotations["appwrite/version"]
-          value: "2.3.0"
+          value: "2.5.0"
 
   - it: doesn't migrate on install
     templates:
@@ -80,7 +80,7 @@ tests:
             name: aw-appwrite-api
             namespace: appwrite
             annotations:
-              appwrite/version: 2.3.0
+              appwrite/version: 2.5.0
     asserts:
       - hasDocuments:
           count: 0
@@ -99,10 +99,10 @@ tests:
             name: aw-appwrite-api
             namespace: appwrite
             annotations:
-              appwrite/version: 2.4.0
+              appwrite/version: 2.6.0
     asserts:
       - failedTemplate:
-          errorPattern: Appwrite 2.4.0 is installed and this would downgrade it to 2.3.0
+          errorPattern: Appwrite 2.6.0 is installed and this would downgrade it to 2.5.0
 
   - it: retries a hook migration that failed
     template: templates/hooks/migrate-hook.yaml
@@ -123,7 +123,7 @@ tests:
             name: aw-appwrite-api
             namespace: appwrite
             annotations:
-              appwrite/version: 2.3.0
+              appwrite/version: 2.5.0
         - kind: Job
           apiVersion: batch/v1
           metadata:
@@ -140,11 +140,11 @@ tests:
     asserts:
       - matchRegex:
           path: metadata.name
-          pattern: ^aw-appwrite-migrate-2-3-0-[0-9a-f]{8}$
+          pattern: ^aw-appwrite-migrate-2-5-0-[0-9a-f]{8}$
       # Pinned so the rename test below compares against this exact render.
       - equal:
           path: metadata.name
-          value: aw-appwrite-migrate-2-3-0-48c408a6
+          value: aw-appwrite-migrate-2-5-0-ea2a7473
       - notExists:
           path: metadata.annotations["helm.sh/hook"]
       - notExists:
@@ -158,10 +158,10 @@ tests:
     asserts:
       - notEqual:
           path: metadata.name
-          value: aw-appwrite-migrate-2-3-0-48c408a6
+          value: aw-appwrite-migrate-2-5-0-ea2a7473
       - matchRegex:
           path: metadata.name
-          pattern: ^aw-appwrite-migrate-2-3-0-[0-9a-f]{8}$
+          pattern: ^aw-appwrite-migrate-2-5-0-[0-9a-f]{8}$
 
   - it: renders nothing in none mode
     templates:

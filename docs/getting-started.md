@@ -12,12 +12,6 @@ Both use the chart's built-in PostgreSQL, Redis and ClickHouse; you can
 [switch to your own](external-databases.md) at any point. Functions and
 Sites need extra infrastructure and come [afterwards](#functions-and-sites).
 
-> [!NOTE]
-> Until the first release is on `ghcr.io`, the
-> `oci://ghcr.io/appwrite/charts/appwrite` commands below fail because the
-> chart isn't there yet. Clone the repository and use `./charts/appwrite`
-> instead ([installing from source](#installing-from-source)).
-
 ## What you need
 
 - Kubernetes 1.29 or later, with a default StorageClass
@@ -95,8 +89,8 @@ sudo kubectl --kubeconfig "${KUBECONFIG:-$HOME/.kube/config}" \
   -n traefik port-forward svc/traefik 80:80
 ```
 
-Functions and Sites work locally too once you add S3 storage and
-`compute.enabled` ([below](#functions-and-sites)), with two limits: previews
+Functions and Sites work locally too: they're on by default
+([below](#functions-and-sites)), with two limits: previews
 at `*.functions.appwrite.localhost` open in Chrome and Firefox, which resolve
 `*.localhost` themselves, but not in every browser; and function code can't
 call Appwrite back at `appwrite.localhost`, which inside a runtime is the
@@ -131,7 +125,7 @@ These are hard to change once Appwrite holds data:
 | **The encryption key** | The chart generates `_APP_OPENSSL_KEY_V1` once. Without it, a database backup can't be read. Back it up after installing ([step 5](#5-back-up-the-encryption-key)), or create it yourself and pass `appwrite.secrets.existingSecret`. | [Bringing your own Secrets](security.md#bringing-your-own-secrets) |
 | **`appwrite.domain`** | It ends up in OAuth redirect URLs you register with providers, Git webhooks, the CNAME target of custom domains, and the function and site preview domains stored in the database. Changing it breaks all of them. | [Custom domains](networking.md#custom-domains) |
 | **Database engine** | PostgreSQL, built-in or external, is recommended and the one CI tests. Moving to another engine later is a data migration, not a values change. | [External databases](external-databases.md) |
-| **Storage device** | `storage.device` is `local` (the `/storage` volume) or `s3`. Files stay where they were written, so switching later leaves them behind. Functions and Sites need `s3`. | [Storage](storage.md) |
+| **Storage device** | `storage.device` is `s3` (by default the built-in object storage) or `local` (the `/storage` volume). Files stay where they were written, so switching later leaves them behind. Functions and Sites need `s3`. | [Storage](storage.md) |
 | **`/storage` access mode** | ReadWriteOnce keeps every pod that mounts `/storage` on one node; ReadWriteMany lets them spread. A claim's access mode can't be changed, only replaced with a new claim. | [ReadWriteOnce vs ReadWriteMany](storage.md#readwriteonce-vs-readwritemany) |
 
 ### 1. Write a values file
@@ -225,24 +219,33 @@ kubectl -n appwrite get secret appwrite -o jsonpath='{.data._APP_OPENSSL_KEY_V1}
 
 ## Functions and Sites
 
-Functions and Sites are off by default. They need:
+Functions and Sites are on by default. A plain install runs:
 
-- **S3 storage.** Builds and the executor exchange code and build output
-  through a bucket ([storage.md](storage.md#s3)).
-- **A privileged pod.** Builds run as ordinary Kubernetes Jobs, but
-  executions run on the open-runtimes executor, which starts runtime
-  containers through a Docker daemon of its own. That daemon is privileged,
-  root on its node: you accept it with `compute.executor.privileged` and give
-  it nodes of its own.
-- **Wildcard DNS and certificates** for previews, at `*.functions.<domain>`
-  and `*.sites.<domain>`.
+- **The built-in object storage**, through which builds and the executor
+  exchange code and build output ([storage.md](storage.md#built-in-object-storage)).
+- **Builds** as ordinary Kubernetes Jobs, in the namespace `<release>-builds`.
+- **Executions** on the open-runtimes executor, in the namespace
+  `<release>-executor`. It starts runtime containers through a Docker daemon
+  of its own, which runs as a privileged pod: root on its node.
 
-[executor.md](executor.md) walks through all of it. Two example files have
-it ready; add one to your install with another `-f`:
+That's enough to try them. Before real users depend on them, give the
+executor nodes of its own, or run the daemon without privileges through
+Sysbox ([executor.md](executor.md)); move files and build output to an S3
+store with redundancy ([storage.md](storage.md#your-own-s3-store)); and set
+up wildcard DNS and certificates for previews, at `*.functions.<domain>` and
+`*.sites.<domain>`.
+
+Where privileged pods aren't allowed (GKE Autopilot, OpenShift's default
+policies, policy engines that forbid them), set `compute.enabled: false`.
+The console still shows Functions and Sites, but creating one then fails
+([troubleshooting.md](troubleshooting.md#deployments-fail-with-an-internal-error)).
+
+Two example files set up a production executor, on nodes of its own with
+your own S3 store; add one to your install with another `-f`:
 
 | Your other values | Add |
 | --- | --- |
-| `minimal.yaml`, or your own file without S3 | [`examples/functions.yaml`](../examples/functions.yaml): S3 with the keys inline, and everything else generated by the chart |
+| `minimal.yaml`, or your own file without S3 | [`examples/functions.yaml`](../examples/functions.yaml): your S3 store with the keys inline, and everything else generated by the chart |
 | S3 keys in a Secret you manage: `production.yaml`, `external-services.yaml`, `aws.yaml`, `gcp.yaml` | [`examples/functions-existing-secrets.yaml`](../examples/functions-existing-secrets.yaml): the Secrets the executor needs in its own namespace, which you create first |
 
 ```console

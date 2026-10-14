@@ -2,13 +2,16 @@
 {{- $v := .Values.browser }}
 {{- $handler := dict "tcpSocket" (dict "port" "http") }}
 {{- $probes := dict "startupProbe" (dict "enabled" true "periodSeconds" 5 "failureThreshold" 30 "timeoutSeconds" 5) "readinessProbe" (dict "enabled" true "periodSeconds" 10 "timeoutSeconds" 5) "livenessProbe" (dict "enabled" true "periodSeconds" 20 "timeoutSeconds" 5 "failureThreshold" 3) }}
+{{- /* Browser 0.3.5 and later refuse hosts that resolve to private addresses
+unless ALLOWED_HOSTS lists them. Screenshots of sites go through the API
+Service (_APP_WORKER_SCREENSHOTS_ROUTER), which is one. */}}
 {{- include "appwrite.deployment" (dict
   "root" .
   "component" "browser"
   "values" $v
   "image" (include "appwrite.image" (dict "root" . "image" $v.image))
   "pullPolicy" $v.image.pullPolicy
-  "env" (toYaml (list (dict "name" "PORT" "value" "3000") (dict "name" "HOME" "value" "/tmp")))
+  "env" (toYaml (list (dict "name" "PORT" "value" "3000") (dict "name" "HOME" "value" "/tmp") (dict "name" "ALLOWED_HOSTS" "value" (include "appwrite.api.internalHost" .))))
   "ports" (list (dict "name" "http" "containerPort" 3000 "protocol" "TCP"))
   "probes" (include "appwrite.probes" (dict "values" $probes "handler" $handler))
   "replicas" $v.replicaCount

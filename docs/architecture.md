@@ -43,14 +43,15 @@ flowchart LR
 | `postgresql` | `appwrite/postgres` | `postgres` | 5432 | One replica | Built-in database. Optional. |
 | `redis` | `redis` | `redis-server` | 6379 | One replica | Cache, queues, pub/sub and locks. Optional. |
 | `clickhouse` | `clickhouse/clickhouse-server` | image default | 8123, 9000 | One replica | Usage statistics and execution logs. Optional. |
-| `orchestrator` | `open-runtimes/orchestrator/jobs-service` | image default | 8080 | One replica | Runs builds of functions and sites as Jobs in the build namespace. With `compute.enabled`. |
+| `seaweedfs` | `chrislusf/seaweedfs` | `weed server -s3` | 8333 | One replica | Built-in S3-compatible object storage for files, deployments and build output. Optional (`storage.s3.mode`). |
+| `orchestrator` | `open-runtimes/orchestrator/jobs-service` | image default | 8080 | One replica | Runs builds of functions and sites as Jobs in the build namespace. With `compute.enabled`, the default. |
 | `executor` | `openruntimes/executor`, run by `docker:dind` | see [executor.md](executor.md#the-executor) | 9900 | `compute.executor.replicaCount` | Runs functions and sites in runtime containers of its own Docker daemon, in the executor namespace. With `compute.enabled`. |
 
 Every component has a ClusterIP Service named `<fullname>-<component>`,
 except workers and tasks, which nothing connects to. The API, console,
 realtime and geo Services listen on port 80; the others use the container
 port. The datastores also get a headless Service for their StatefulSet.
-Optional components such as the browser, assistant and MQTT broker are
+Optional components such as the browser and the MQTT broker are
 described in [optional-components.md](optional-components.md).
 
 The API and the builds worker submit builds to the orchestrator, and the API

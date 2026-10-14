@@ -70,10 +70,15 @@ to the guide that explains it.
       none, so nothing limits how many of them a drain evicts at once. Drain
       one node at a time
       ([architecture.md](architecture.md#probes-and-disruption-budgets)).
-- [ ] **Functions and Sites:** the executor on nodes of its own
-      ([executor.md](executor.md#executor-isolation)), with replicas and
+- [ ] **Functions and Sites** (on by default): the executor on nodes of its
+      own ([executor.md](executor.md#executor-isolation)), with replicas and
       resources for the executions you expect
-      ([executor.md](executor.md#sizing)).
+      ([executor.md](executor.md#sizing)); or `compute.enabled: false` if you
+      don't use them, which removes the privileged executor pod.
+- [ ] **Object storage with redundancy:** your own S3 store
+      ([storage.md](storage.md#your-own-s3-store)), or backups of the
+      built-in store's volume, which is a single replica
+      ([storage.md](storage.md#built-in-object-storage)).
 
 ## Operations
 
@@ -97,7 +102,7 @@ to the guide that explains it.
 
 ## Monitoring
 
-Appwrite 2.3.0 exposes no Prometheus metrics. You have its logs, its health
+Appwrite 2.5.0 exposes no Prometheus metrics. You have its logs, its health
 API, and the metrics of Kubernetes and your datastores.
 
 | Watch | How | Alert when |

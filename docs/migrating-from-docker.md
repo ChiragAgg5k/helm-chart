@@ -5,8 +5,8 @@ keeping all data.
 
 Before you start:
 
-- **Same Appwrite version.** The chart deploys Appwrite 2.3.0. Upgrade the
-  Docker install to 2.3.0 first, including its data migration. A Docker
+- **Same Appwrite version.** The chart deploys Appwrite 2.5.0. Upgrade the
+  Docker install to 2.5.0 first, including its data migration. A Docker
   install on 2.2.0 can also move as it is: install the chart with
   `--set image.tag=2.2.0` in step 3 and drop it in step 5, which then runs
   the migration; give that upgrade a `--timeout` long enough for it
@@ -72,8 +72,8 @@ only carry over what you changed. Most variables have a value of their own:
 | `_APP_SYSTEM_EMAIL_NAME`, `_APP_SYSTEM_EMAIL_ADDRESS`, `_APP_EMAIL_SECURITY` | `appwrite.system.emailName`, `.emailAddress`, `.securityEmailAddress` |
 | `_APP_SMTP_HOST`, `_PORT`, `_SECURE`, `_USERNAME` | `smtp.host`, `.port`, `.secure`, `.username` (defaults `587` and `tls`) |
 | `_APP_SMTP_PASSWORD` | `smtp.password.value`, or `smtp.password.secretName` |
-| `_APP_STORAGE_DEVICE` | `storage.device`: `local` or `s3` |
-| `_APP_STORAGE_S3_ENDPOINT`, `_REGION`, `_BUCKET` | `storage.s3.endpoint`, `.region`, `.bucket` |
+| `_APP_STORAGE_DEVICE` | `storage.device`: `s3` (the chart's default) or `local`, the Docker default: set it explicitly, see below |
+| `_APP_STORAGE_S3_ENDPOINT`, `_REGION`, `_BUCKET` | `storage.s3.mode: external` with `storage.s3.external.endpoint`, `.region`, and `storage.s3.bucket` |
 | `_APP_STORAGE_S3_ACCESS_KEY`, `_APP_STORAGE_S3_SECRET` | `storage.s3.accessKeyId`, `storage.s3.secretAccessKey`, each with a `value` or a `secretName` |
 | `_APP_STORAGE_LIMIT`, `_APP_STORAGE_PREVIEW_LIMIT` | `storage.limit`, `.previewLimit` |
 | `_APP_STORAGE_ANTIVIRUS*` | `appwrite.config` ([storage.md](storage.md#antivirus)) |
@@ -81,7 +81,6 @@ only carry over what you changed. Most variables have a value of their own:
 | `_APP_DB_SCHEMA` | `database.name`, built-in or external. Keep the same name (default `appwrite`): it's also the name of the schema inside the dump. |
 | `_APP_FUNCTIONS_RUNTIMES`, `_APP_SITES_RUNTIMES` | `compute.functionsRuntimes`, `compute.sitesRuntimes` (lists) |
 | `_APP_DOCKER_HUB_USERNAME`, `_APP_DOCKER_HUB_PASSWORD` | `OPR_EXECUTOR_DOCKER_HUB_USERNAME` and `_PASSWORD` in `compute.executor.extraEnv` ([executor.md](executor.md#registries)) |
-| `_APP_ASSISTANT_OPENAI_API_KEY` | `assistant.enabled` and `assistant.apiKey` ([optional-components.md](optional-components.md#assistant)) |
 | `_APP_DOCUMENTSDB`, `_APP_VECTORSDB` and their `_APP_DB_*` variables | `documentsDb.*`, `vectorsDb.*` ([external-databases.md](external-databases.md#optional-databases)) |
 | OAuth, Git (`_APP_VCS_*`), SMS and other secrets, `_APP_LOGGING_CONFIG` | `appwrite.secretConfig` or `appwrite.extraEnvFrom` ([integrations.md](integrations.md)) |
 | other settings you changed: retention, GraphQL limits, function timeouts and sizes, ... | `appwrite.config` |
@@ -113,12 +112,16 @@ as `s3` with the provider's endpoint ([storage.md](storage.md#s3)). We haven't
 tested that existing files stay readable after the switch; check before you
 rely on it.
 
-**Functions and Sites need S3.** The chart's compute plane exchanges code and
-build output through a bucket and refuses `compute.enabled` with `local`
-storage. A Docker install on local storage can move its files as described
-below, but its functions and sites won't build or run in the chart until
-storage moves to S3. That move is a migration of its own (the paths stored
-in the database change with the device), so plan it separately.
+**Keep the storage device.** The chart stores files in its built-in object
+storage by default, while a Docker install keeps them on its volume
+(`_APP_STORAGE_DEVICE=local`). Set `storage.device: local` to carry those
+files over as described below, and with it `compute.enabled: false`: the
+chart's compute plane exchanges code and build output through a bucket and
+refuses `local` storage, so functions and sites won't build or run until
+storage moves to S3. That move is a migration of its own (the paths stored in
+the database change with the device), so plan it separately. A Docker install
+already on S3 keeps its bucket (`storage.s3.mode: external`) and Functions
+and Sites.
 
 ## 2. Stop the Docker install and dump the data
 

@@ -33,9 +33,9 @@ What that means for each pod:
 | Geo | `www-data` (82) | Its port 80 is hard-coded, so the pod sets the namespaced sysctl `net.ipv4.ip_unprivileged_port_start=0`, which `restricted` allows. |
 | PostgreSQL | `postgres` (999) | `/var/run/postgresql` is an `emptyDir`. |
 | Redis | `redis` (999) | |
+| SeaweedFS | 1000 | Runs as root in its own image; the chart sets UID 1000. The S3 users file is written to `/tmp` from the chart's Secret on start. |
 | ClickHouse | `clickhouse` (101) | Users and logging come from mounted files, because the image's entrypoint would otherwise write them to `/etc`. Logs go to stdout. |
 | Browser | 999 | `/dev/shm` is a memory `emptyDir`. |
-| Assistant | 1000 | |
 | Autogravity | 65532 | |
 | Embedding | 10001 | Models are kept on their own PersistentVolumeClaim. |
 | Orchestrator | `nonroot` (65532) | The only pod with a ServiceAccount token, for its Role in the build namespace. |
@@ -109,11 +109,10 @@ The chart keeps credentials in a Secret named after the release:
 | `clickhouse-password` | `clickhouse.password` | ClickHouse, built-in or external. |
 | `documentsdb-password`, `vectorsdb-password` | `documentsDb.password`, `vectorsDb.password` | DocumentsDB and VectorsDB, when they have a password of their own. |
 | `executor-secret`, `orchestrator-secret` | `compute.secrets.executorSecret`, `orchestratorSecret` | The executor and the orchestrator (`compute.enabled`). The in-cluster executor gets a copy of `executor-secret` and the S3 keys in a Secret in its namespace. |
-| `s3-access-key`, `s3-secret-key` | `storage.s3.accessKeyId`, `storage.s3.secretAccessKey` | S3 storage. |
+| `s3-access-key`, `s3-secret-key` | `storage.s3.accessKeyId`, `storage.s3.secretAccessKey` | S3 storage, built-in or external. Generated once for the built-in store. |
 | `smtp-password` | `smtp.password` | SMTP. |
-| `openai-api-key` | `assistant.apiKey` | The assistant. |
 
-The datastore, S3, SMTP and assistant credentials all take the same three
+The datastore, S3 and SMTP credentials all take the same three
 fields: `value` sets the credential inline and stores it in this Secret;
 `secretName` reads it from a Secret you manage instead, under `secretKey`
 (the key in the table by default), and leaves it out of this one. These are
@@ -170,7 +169,7 @@ clickhouse:
 ```
 
 Key names are configurable (`appwrite.secrets.keys.*`, and `secretKey` next
-to each `secretName`). External databases, S3, SMTP and the assistant take a
+to each `secretName`). External databases, S3 and SMTP take a
 `secretName` the same way
 ([external-databases.md](external-databases.md#credentials) lists their
 keys), and integrations can read a Secret through `appwrite.extraEnvFrom`
@@ -196,7 +195,7 @@ kubectl -n appwrite patch secret appwrite --type merge \
 
 `helm upgrade` then restarts every pod that reads a changed value of the
 chart's Secret: the Appwrite pods (API, realtime, workers, tasks, MQTT), the
-orchestrator, the executor, and geo, Redis, ClickHouse and the assistant,
+orchestrator, the executor, and geo, Redis and ClickHouse,
 which each carry a checksum of just the keys they read. PostgreSQL doesn't
 need a restart.
 
@@ -266,8 +265,9 @@ which carry the label `appwrite/datastore-client: "true"`.
 | --- | --- | --- |
 | `<fullname>-edge` | API, console, realtime | `networkPolicy.ingress.from` on the HTTP port (any source when empty); pods of the release on any port |
 | `<fullname>-builds-to-api` | API (`compute.enabled`) | build pods, on the HTTP port |
-| `<fullname>-internal` | geo, browser, assistant, autogravity, embedding | pods of the release |
+| `<fullname>-internal` | geo, browser, autogravity, embedding | pods of the release |
 | `<fullname>-datastores` | PostgreSQL, Redis, ClickHouse | Appwrite pods of the release; on the metrics ports (`database.builtin.metrics.enabled` and the same under `redis` and `clickhouse`), also `networkPolicy.metrics.from` |
+| `<fullname>-object-storage` | SeaweedFS (`storage.s3.mode: builtin` with `device: s3`) | Appwrite pods and the orchestrator of the release, build pods and the executor, on the S3 port |
 | `<fullname>-background` | workers and tasks | nothing |
 | `<fullname>-mqtt` | MQTT broker (`mqtt.enabled`) | `networkPolicy.ingress.from` (any source when empty), on the MQTT ports |
 | `<fullname>-orchestrator` | orchestrator (`compute.enabled`) | pods of the release and build pods, on the HTTP port |
@@ -289,8 +289,8 @@ in the other namespaces, whether or not `networkPolicy.enabled` is set:
 
 | Policy | Namespace | Allows in | Allows out | Toggle |
 | --- | --- | --- | --- | --- |
-| `<fullname>-build` | build | nothing | DNS, the API and orchestrator, the S3 endpoint, public addresses, `extraEgress` | `compute.builds.networkPolicy.enabled` |
-| `<fullname>-executor` | executor | Appwrite pods of the release, on port 9900 | DNS, the S3 endpoint, public addresses, `extraEgress` | `compute.executor.networkPolicy.enabled` |
+| `<fullname>-build` | build | nothing | DNS, the API and orchestrator, the built-in object store or the S3 endpoint, public addresses, `extraEgress` | `compute.builds.networkPolicy.enabled` |
+| `<fullname>-executor` | executor | Appwrite pods of the release, on port 9900 | DNS, the built-in object store or the S3 endpoint, public addresses, `extraEgress` | `compute.executor.networkPolicy.enabled` |
 
 Both are on by default. [executor.md](executor.md#isolation) explains which
 ranges count as public and how to add rules.
