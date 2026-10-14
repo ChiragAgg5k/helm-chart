@@ -186,12 +186,12 @@ If you restricted egress with
 `networkPolicy.egress.enabled`, allow the endpoint in
 `networkPolicy.egress.extraRules` ([security.md](security.md#egress)).
 
-With `endpoint` empty, Appwrite talks to AWS S3 with virtual-hosted URLs
+With `storage.s3.external.endpoint` empty, Appwrite talks to AWS S3 with virtual-hosted URLs
 (`<bucket>.s3.<region>.amazonaws.com`). With an endpoint, it uses path-style
 URLs (`<endpoint>/<bucket>/...`), which every S3-compatible store accepts. An
 endpoint without a scheme gets `https://`.
 
-| Provider | `endpoint` | `region` |
+| Provider | `external.endpoint` | `external.region` |
 | --- | --- | --- |
 | AWS S3 | *(empty)* | the bucket's region, e.g. `eu-central-1` |
 | Cloudflare R2 | `https://<account id>.r2.cloudflarestorage.com` | `auto` |

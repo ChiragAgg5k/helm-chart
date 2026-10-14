@@ -77,8 +77,9 @@ Executions need a Docker daemon: the
 container per runtime. In the cluster the chart gives each executor pod its
 own daemon (Docker-in-Docker), which runs as a **privileged container: root
 on its node**, and it runs your users' code. That is the one exception to the
-standards above, and the chart only renders it when you accept it
-(`compute.executor.privileged: true`, or `runtimeClassName` for Sysbox):
+standards above. It's on by default (`compute.executor.privileged: true`);
+turn it off with `compute.enabled: false`, or run the daemon through Sysbox
+instead (`privileged: false` with `runtimeClassName`):
 
 - The executor gets a namespace of its own, the only one labelled for the
   `privileged` standard. The Appwrite namespace stays `restricted` and the
@@ -166,6 +167,17 @@ redis:
 clickhouse:
   password:
     secretName: appwrite-clickhouse        # key: clickhouse-password
+storage:
+  s3:                                      # the built-in object storage's keys too
+    accessKeyId:
+      secretName: appwrite-s3              # key: s3-access-key
+    secretAccessKey:
+      secretName: appwrite-s3              # key: s3-secret-key
+compute:                                   # Functions and Sites, on by default
+  secrets:
+    existingSecret: appwrite-compute       # keys: executor-secret, orchestrator-secret
+  executor:
+    existingSecret: appwrite-executor      # a copy in the executor namespace (executor.md#existing-secrets)
 ```
 
 Key names are configurable (`appwrite.secrets.keys.*`, and `secretKey` next

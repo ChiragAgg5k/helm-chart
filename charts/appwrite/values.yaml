@@ -828,11 +828,12 @@ compute:
   # on Docker-in-Docker, in a namespace of its own.
   executor:
     # -- Run the Docker daemon as a privileged container, which makes it root
-    # on its node. Required unless `runtimeClassName` names a runtime that runs
-    # Docker without it, such as Sysbox. For production, give the executor
-    # nodes of its own (`nodeSelector`, `tolerations`).
+    # on its node. Set to false, together with `runtimeClassName`, for a
+    # runtime that runs Docker without it, such as Sysbox. For production,
+    # give the executor nodes of its own (`nodeSelector`, `tolerations`).
     privileged: true
-    # -- RuntimeClass of executor pods, e.g. `sysbox-runc`.
+    # -- RuntimeClass of executor pods, e.g. `sysbox-runc` (with
+    # `privileged: false`).
     runtimeClassName: ""
     # -- Namespace of the executor. Defaults to `<release namespace>-executor`.
     # Use a different one per release when several releases share a namespace.
