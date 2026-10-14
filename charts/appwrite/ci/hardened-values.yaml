@@ -26,6 +26,12 @@ networkPolicy:
   enabled: true
   egress:
     enabled: true
+    # Appwrite checks avatar, screenshot and migration URLs through its own
+    # resolver (_APP_DNS_EXTERNAL, by default 8.8.8.8), as docs/networking.md
+    # tells users to allow.
+    extraRules:
+      - to: [{ipBlock: {cidr: 8.8.8.8/32}}]
+        ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
   metrics:
     from:
       - namespaceSelector:
