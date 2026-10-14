@@ -908,10 +908,10 @@ The build orchestrator and the executor.
 | compute.executor.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
 | compute.executor.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
 | compute.executor.priorityClassName | string | `""` | Priority class. Empty inherits `defaults.priorityClassName`. |
-| compute.executor.privileged | bool | `true` | Run the Docker daemon as a privileged container, which makes it root on its node. Required unless `runtimeClassName` names a runtime that runs Docker without it, such as Sysbox. For production, give the executor nodes of its own (`nodeSelector`, `tolerations`). |
+| compute.executor.privileged | bool | `true` | Run the Docker daemon as a privileged container, which makes it root on its node. Set to false, together with `runtimeClassName`, for a runtime that runs Docker without it, such as Sysbox. For production, give the executor nodes of its own (`nodeSelector`, `tolerations`). |
 | compute.executor.replicaCount | int | `1` | Executor replicas. Each has its own Docker daemon: a runtime starts on the replica an execution reaches and stays there until it's idle. |
 | compute.executor.resources | object | `{"limits":{"memory":"4Gi"},"requests":{"cpu":"500m","memory":"1Gi"}}` | Resources of the Docker daemon container, which runs the executor and every runtime: size it for the executions you expect. |
-| compute.executor.runtimeClassName | string | `""` | RuntimeClass of executor pods, e.g. `sysbox-runc`. |
+| compute.executor.runtimeClassName | string | `""` | RuntimeClass of executor pods, e.g. `sysbox-runc` (with `privileged: false`). |
 | compute.executor.terminationGracePeriodSeconds | int | `60` | Seconds to wait on shutdown. |
 | compute.executor.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
 | compute.executor.topologySpreadConstraints | list | `[]` | Topology spread constraints. Empty inherits `defaults.topologySpreadConstraints`, or spreads replicas across nodes. |

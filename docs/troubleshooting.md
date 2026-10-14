@@ -394,7 +394,8 @@ ordinary Jobs.
 
 The alternative is [Sysbox](https://github.com/nestybox/sysbox), which runs
 the daemon without `privileged`: install it on the executor's nodes and set
-`compute.executor.runtimeClassName: sysbox-runc` instead
+`compute.executor.privileged: false` with
+`compute.executor.runtimeClassName: sysbox-runc`
 ([executor.md](executor.md#without-a-privileged-container)). CI doesn't test
 it.
 

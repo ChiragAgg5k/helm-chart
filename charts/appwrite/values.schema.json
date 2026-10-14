@@ -1379,7 +1379,7 @@
               "type": "string"
             },
             "privileged": {
-              "description": "Run the Docker daemon as a privileged container, which makes it root on its node. Required unless `runtimeClassName` names a runtime that runs Docker without it, such as Sysbox. For production, give the executor nodes of its own (`nodeSelector`, `tolerations`).",
+              "description": "Run the Docker daemon as a privileged container, which makes it root on its node. Set to false, together with `runtimeClassName`, for a runtime that runs Docker without it, such as Sysbox. For production, give the executor nodes of its own (`nodeSelector`, `tolerations`).",
               "type": "boolean"
             },
             "replicaCount": {
@@ -1419,7 +1419,7 @@
               "description": "Resources of the Docker daemon container, which runs the executor and every runtime: size it for the executions you expect."
             },
             "runtimeClassName": {
-              "description": "RuntimeClass of executor pods, e.g. `sysbox-runc`.",
+              "description": "RuntimeClass of executor pods, e.g. `sysbox-runc` (with `privileged: false`).",
               "type": "string"
             },
             "terminationGracePeriodSeconds": {
