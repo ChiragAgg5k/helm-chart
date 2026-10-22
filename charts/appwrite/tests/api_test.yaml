@@ -53,7 +53,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].startupProbe.exec.command
-          value: [test, -f, /tmp/.appwrite-ready]
+          value: [sh, -c, test -f /tmp/.appwrite-ready]
       - notExists:
           path: spec.template.spec.containers[0].startupProbe.httpGet
 

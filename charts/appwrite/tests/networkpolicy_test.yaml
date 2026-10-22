@@ -16,6 +16,18 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: admits only pods of the release to the internal services, ExifTool included
+    template: templates/networkpolicy/internal.yaml
+    set:
+      networkPolicy.enabled: true
+    asserts:
+      - contains:
+          path: spec.podSelector.matchExpressions
+          content:
+            key: app.kubernetes.io/component
+            operator: In
+            values: [geo, browser, exiftool, autogravity, embedding]
+
   - it: lets any source reach the entry points when no sources are configured
     template: templates/networkpolicy/edge.yaml
     set:
