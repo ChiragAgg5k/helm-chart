@@ -65,21 +65,21 @@ exactly one of each and recreates (rather than rolls) them on updates.
 
 ## Worker topologies
 
-Appwrite's work happens on 15 Redis queues. `workers.mode` decides how they're
+Appwrite's work happens on 16 Redis queues. `workers.mode` decides how they're
 spread over Deployments:
 
 | Mode | Deployments | When to use |
 | --- | --- | --- |
 | `combined` (default) | `worker`, consuming every queue | Small installs. Uses the least memory. |
 | `separate` | `worker-<queue>`, one per queue in `workers.queues` | Scale or size each queue independently. Matches Appwrite's `docker-compose.separate.yml`. |
-| `grouped` | `worker-<group>`, one per entry in `workers.groups` | Isolate noisy queues (usage, builds) without running 15 pods. |
+| `grouped` | `worker-<group>`, one per entry in `workers.groups` | Isolate noisy queues (usage, builds) without running 16 pods. |
 
 ```yaml
 workers:
   mode: grouped
   groups:
     core:
-      queues: [databases, deletes, mails, messaging, notifications, certificates, migrations, webhooks]
+      queues: [databases, deletes, maintenance, mails, messaging, notifications, certificates, migrations, webhooks]
     usage:
       queues: [stats-usage, stats-resources]
       replicaCount: 2
@@ -104,17 +104,27 @@ Deployment, as Appwrite's compose files do:
 
 | Mode | `_APP_WORKER_MAX_COROUTINES` | Override |
 | --- | --- | --- |
-| `combined` | 78, the sum of every queue's concurrency | `workers.combined.maxCoroutines` |
-| `separate` | the queue's own concurrency: 8 for most queues, 1 for `databases`, `mails`, `messaging`, `migrations`, `notifications` and `stats-resources` | `workers.queues.<queue>.maxCoroutines` |
+| `combined` | 79, the sum of every queue's concurrency | `workers.combined.maxCoroutines` |
+| `separate` | the queue's own concurrency: 8 for most queues, 1 for `databases`, `maintenance`, `mails`, `messaging`, `migrations`, `notifications` and `stats-resources` | `workers.queues.<queue>.maxCoroutines` |
 | `grouped` | the sum of its queues' concurrency | `workers.groups.<group>.maxCoroutines` |
 
 Only workers whose queues touch files mount the `/storage` volume: deletes,
 builds, jobs, screenshots, certificates, messaging and migrations. That keeps
 the ReadWriteOnce co-location to the pods that need it.
 
+The `maintenance` queue (Appwrite 2.6 and later) cleans up projects nobody
+has used in the last 30 days, a slice at a time, and holds each slice back
+while the `deletes` queue is backed up. It runs one job at a time. In
+`grouped` mode, list it in a group like any other queue; if no group does,
+the chart runs it in a `worker-maintenance` Deployment of its own, with
+`workers.resources`, so groups written for earlier versions keep working.
+
 `tasks.scheduler.mode: separate` similarly splits the scheduler into
-`scheduler-functions`, `scheduler-executions`, `scheduler-messages` and
-`stats-resources`. Each still runs as a single replica.
+`scheduler-functions`, `scheduler-executions`, `scheduler-messages`,
+`scheduler-maintenance` and `stats-resources`. Each still runs as a single
+replica. `_APP_MAINTENANCE_INACTIVE_INTERVAL` (604800 seconds, a week, set
+through `appwrite.config`) is how often the scheduler goes over each inactive
+project.
 
 Queues no Deployment consumes (a disabled queue in `separate` mode, or a
 queue missing from every group) are listed as a warning after install or
@@ -251,8 +261,8 @@ a pod can hold processes × pools × pool size connections.
 So `connectionsMax` and `poolClients` set the API's and realtime's share, while
 `maxCoroutines` sets the workers'. With the defaults (`connectionsMax` 151,
 `poolClients` 15, one CPU per pod) the budget gives a pool size of 1, and the
-ceiling is 12 for the API, 2 for realtime, 156 for the combined worker, 16 for
-the scheduler and 2 each for maintenance and interval: 190 in all. The built-in
+ceiling is 12 for the API, 2 for realtime, 158 for the combined worker, 16 for
+the scheduler and 2 each for maintenance and interval: 192 in all. The built-in
 PostgreSQL sets `max_connections` to `connectionsMax + 20` (171) unless
 `database.builtin.maxConnections` says otherwise, and a worker only gets
 near its ceiling when it runs dozens of jobs at once.

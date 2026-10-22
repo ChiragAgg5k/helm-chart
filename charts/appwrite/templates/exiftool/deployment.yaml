@@ -1,0 +1,20 @@
+{{- if .Values.exiftool.enabled }}
+{{- $v := .Values.exiftool }}
+{{- /* /readyz turns 503 as soon as shutdown starts; /livez only reports that the process runs. */}}
+{{- $ready := dict "startupProbe" (dict "enabled" true "periodSeconds" 2 "failureThreshold" 30 "timeoutSeconds" 3) "readinessProbe" (dict "enabled" true "periodSeconds" 10 "timeoutSeconds" 3) }}
+{{- $live := dict "livenessProbe" (dict "enabled" true "periodSeconds" 20 "timeoutSeconds" 3 "failureThreshold" 3) }}
+{{- $probes := print (include "appwrite.probes" (dict "values" $ready "handler" (dict "httpGet" (dict "path" "/readyz" "port" "http")))) (include "appwrite.probes" (dict "values" $live "handler" (dict "httpGet" (dict "path" "/livez" "port" "http")))) }}
+{{- include "appwrite.deployment" (dict
+  "root" .
+  "component" "exiftool"
+  "values" $v
+  "image" (include "appwrite.image" (dict "root" . "image" $v.image))
+  "pullPolicy" $v.image.pullPolicy
+  "env" (toYaml (list (dict "name" "MAX_CONCURRENT_STRIPS" "value" ($v.concurrency | toString))))
+  "ports" (list (dict "name" "http" "containerPort" 8080 "protocol" "TCP"))
+  "probes" $probes
+  "replicas" $v.replicaCount
+  "volumeMounts" (toYaml (list (dict "name" "tmp" "mountPath" "/tmp")))
+  "volumes" (toYaml (list (dict "name" "tmp" "emptyDir" dict)))
+) }}
+{{- end }}

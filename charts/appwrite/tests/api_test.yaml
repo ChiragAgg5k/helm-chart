@@ -49,10 +49,18 @@ tests:
           path: spec.template.spec.initContainers[0].image
           pattern: ^mirror\.example\.com/
 
+  - it: starts once Appwrite has written its readiness marker
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.exec.command
+          value: [test, -f, /tmp/.appwrite-ready]
+      - notExists:
+          path: spec.template.spec.containers[0].startupProbe.httpGet
+
   - it: probes /v1/health/version with the internal Host header
     asserts:
       - equal:
-          path: spec.template.spec.containers[0].startupProbe.httpGet
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
           value:
             path: /v1/health/version
             port: http

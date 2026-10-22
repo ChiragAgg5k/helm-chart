@@ -19,11 +19,12 @@ Then read the logs of the component involved:
 | Realtime | `kubectl -n appwrite logs deploy/appwrite-realtime` |
 | Workers, `workers.mode: combined` (default) | `kubectl -n appwrite logs deploy/appwrite-worker` |
 | Workers, `separate` | `deploy/appwrite-worker-<queue>`, e.g. `appwrite-worker-mails`, `appwrite-worker-stats-usage` |
-| Workers, `grouped` | `deploy/appwrite-worker-<group>` |
-| Scheduler | `deploy/appwrite-scheduler`; with `tasks.scheduler.mode: separate`, `appwrite-scheduler-functions`, `-executions`, `-messages` |
+| Workers, `grouped` | `deploy/appwrite-worker-<group>`, and `appwrite-worker-maintenance` when no group lists `maintenance` |
+| Scheduler | `deploy/appwrite-scheduler`; with `tasks.scheduler.mode: separate`, `appwrite-scheduler-functions`, `-executions`, `-messages`, `-maintenance` |
 | Maintenance, interval tasks | `deploy/appwrite-maintenance`, `deploy/appwrite-interval` |
 | Built-in datastores | `appwrite-postgresql-0`, `appwrite-redis-0`, `appwrite-clickhouse-0` |
 | Migration Job | `job/appwrite-migrate` (hook), or the `appwrite-migrate-<version>-<hash>` Job with `migrations.mode: job` |
+| ExifTool | `deploy/appwrite-exiftool`; the API logs "Image metadata was not removed" when stripping fails |
 | Functions and Sites | `deploy/appwrite-orchestrator`, and in `appwrite-executor`, `deploy/appwrite-executor` |
 
 Add `--previous` to read the log of a container that crashed and restarted.
@@ -206,7 +207,7 @@ The server requires TLS, which Appwrite's MySQL client doesn't use. Turn off
 ### Redis: connection resets or timeouts against a managed Redis
 
 The service expects TLS (ElastiCache with in-transit encryption, ElastiCache
-Serverless, Azure's TLS port, Upstash). Appwrite 2.5.0 connects in plain text
+Serverless, Azure's TLS port, Upstash). Appwrite 2.6.1 connects in plain text
 only; use a plain-text endpoint on a private network
 ([Redis](external-databases.md#redis)).
 
@@ -401,7 +402,7 @@ it.
 
 ### Does it expose Prometheus metrics?
 
-Appwrite 2.5.0 has no metrics endpoint. Watch its health API, its queues and
+Appwrite 2.6.1 has no metrics endpoint. Watch its health API, its queues and
 its logs, plus the metrics of Kubernetes and the datastores. The built-in
 datastores can run exporters (`database.builtin.metrics`,
 `redis.builtin.metrics`, `clickhouse.builtin.metrics`) with ServiceMonitors

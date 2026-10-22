@@ -1,13 +1,14 @@
 # Optional components
 
 Appwrite's Docker install ships a few supporting services. The chart can run
-each of them. Geo and the browser are on by default; the others are off until
-you enable them.
+each of them. Geo, the browser and ExifTool are on by default; the others are
+off until you enable them.
 
 | Component | Value | Default | What it gives you |
 | --- | --- | --- | --- |
 | [Geo](#geo) | `geo.enabled` | on | Country and location for sessions and logs. |
 | [Browser](#browser) | `browser.enabled` | on | Site screenshots and `/v1/avatars/screenshots`. |
+| [ExifTool](#exiftool) | `exiftool.enabled` | on | Location, camera and capture time removed from images in buckets that ask for it. |
 | [Autogravity](#autogravity) | `autogravity.enabled` | off | Image previews cropped around the subject (`gravity=auto`). |
 | [Embedding](#embedding) | `embedding.enabled` | off | The embeddings API, which turns text into vectors. |
 | [MQTT](#mqtt) | `mqtt.enabled` | off | Push notifications over MQTT, through Messaging's Appwrite provider. |
@@ -56,6 +57,34 @@ nothing restricts it. See [security.md](security.md#network-policies).
 It runs as UID 999 with a read-only root filesystem, a writable `/tmp`, and
 a 256 MiB in-memory `/dev/shm` for Chromium, which counts towards its memory
 limit. Scale it with `browser.replicaCount`.
+
+## ExifTool
+
+Appwrite 2.6 can remove location, device and capture-time metadata from
+images as they're uploaded: turn on *Image metadata* in a bucket's settings
+(`stripMetadata` in the API). Color profiles and orientation are kept, and
+pixels aren't re-encoded. The work is done by an
+[ExifTool](https://github.com/appwrite/exiftool) service, which the chart
+runs by default. To turn it off:
+
+```yaml
+exiftool:
+  enabled: false
+```
+
+Without it, buckets with the setting on store images as uploaded, metadata
+and all, and only a warning in the API's log says so. The same happens when
+ExifTool fails or can't be reached, for images over 20 MB, and for uploads
+through the S3-compatible API. Existing files are never rewritten. If you
+rely on the setting to keep locations private, watch the
+`<fullname>-exiftool` pod.
+
+Only the API calls it, and only for new uploads to such buckets. Each pod
+runs `exiftool.concurrency` (2) ExifTool processes of about 50 MiB, and
+strips that many images at once. Raise it, or `exiftool.replicaCount`, for
+buckets that take many photos at once. It runs as UID 65532 with a read-only
+root filesystem; uploads are written to an `emptyDir` at `/tmp` while they're
+stripped.
 
 ## Autogravity
 
@@ -144,6 +173,7 @@ with `mqtt.replicaCount`. `_APP_MQTT_REPLAY_DEPTH` (5) and
 | --- | --- | --- | --- | --- |
 | Geo | `docker.io/appwrite/geo:0.3.2` | 20m CPU, 128Mi | 512Mi | `geo.replicaCount` (1) |
 | Browser | `docker.io/appwrite/browser:0.3.6` | 100m CPU, 512Mi | 2Gi | `browser.replicaCount` (1) |
+| ExifTool | `ghcr.io/appwrite/exiftool:0.1.0` | 20m CPU, 128Mi | 512Mi | `exiftool.replicaCount` (1) |
 | Autogravity | `ghcr.io/appwrite/autogravity:0.0.11` | 100m CPU, 512Mi | 2Gi | 1 |
 | Embedding | `docker.io/appwrite/embedding:0.3.1` | 250m CPU, 1Gi | 4Gi | 1 |
 | MQTT | the Appwrite image | 50m CPU, 128Mi | 512Mi | `mqtt.replicaCount` (1) |

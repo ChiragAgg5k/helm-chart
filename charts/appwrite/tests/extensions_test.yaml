@@ -159,7 +159,7 @@ tests:
     asserts:
       - contains:
           path: spec.template.spec.volumes
-          content: {name: dshm, emptyDir: {medium: Memory, sizeLimit: 256Mi}}
+          content: {name: dshm, emptyDir: {medium: Memory, sizeLimit: 1Gi}}
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content: {name: dshm, mountPath: /dev/shm}
@@ -171,7 +171,7 @@ tests:
     asserts:
       - notContains:
           path: spec.template.spec.volumes
-          content: {name: dshm, emptyDir: {medium: Memory, sizeLimit: 256Mi}}
+          content: {name: dshm, emptyDir: {medium: Memory, sizeLimit: 1Gi}}
 
   - it: rolls Redis when its password changes
     template: templates/redis/statefulset.yaml

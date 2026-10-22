@@ -105,10 +105,13 @@ endpoint (a URL; empty means AWS S3), region and bucket.
 builtin: true
 endpoint: {{ printf "http://%s.%s.svc:8333" (include "appwrite.componentName" (dict "root" . "component" "seaweedfs")) .Release.Namespace | quote }}
 region: us-east-1
+{{- /* Appwrite 2.6 infers the style from the endpoint; the Service name could pass for a bucket host. */}}
+pathStyle: enabled
 {{- else }}
 builtin: false
 endpoint: {{ $s.external.endpoint | quote }}
 region: {{ $s.external.region | quote }}
+pathStyle: {{ $s.external.pathStyle | quote }}
 {{- end }}
 bucket: {{ $s.bucket | quote }}
 {{- end }}

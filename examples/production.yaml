@@ -125,7 +125,7 @@ workers:
   mode: grouped
   groups:
     core:
-      queues: [databases, deletes, mails, messaging, notifications, certificates, migrations, webhooks]
+      queues: [databases, deletes, maintenance, mails, messaging, notifications, certificates, migrations, webhooks]
       resources:
         requests: {cpu: 500m, memory: 1Gi}
     usage:

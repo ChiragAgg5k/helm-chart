@@ -252,6 +252,18 @@ can't reach that address, for example a Gitea in the same cluster, set
 `_APP_VCS_WEBHOOK_URL` to a base URL it can reach, such as
 `http://appwrite-api.appwrite.svc`.
 
+### Entire
+
+Appwrite 2.6 adds [Entire](https://entire.io) as a Git provider, through a
+plugin you register with Entire. Set `_APP_VCS_ENTIRE_PLUGIN` (the plugin's
+slug), `_APP_VCS_ENTIRE_ISSUER` (usually `https://<console domain>`) and, for
+a core other than `https://us.auth.entire.io`, `_APP_VCS_ENTIRE_ENDPOINT` in
+`appwrite.config`, and the plugin's Ed25519 private key (PKCS#8 PEM) as
+`_APP_VCS_ENTIRE_PRIVATE_KEY` in a Secret, as for GitHub. Callbacks go to
+`https://<console domain>/v1/vcs/entire/callback` and events to
+`https://<domain>/v1/vcs/entire/events`. The console that ships with 2.6.1
+keeps Entire behind a feature flag that is off.
+
 ## Console sign-in with GitHub, GitLab, Bitbucket or Google
 
 By default, console users sign in with email and password. To offer a
@@ -309,7 +321,7 @@ appwrite:
     _APP_LOGGING_CONFIG: sentry://<project id>:<key>@<sentry host>/
 ```
 
-Sentry is the only provider Appwrite 2.5.0 supports. When the DSN is
+Sentry is the only provider Appwrite 2.6.1 supports. When the DSN is
 invalid, the pods log `Invalid _APP_LOGGING_CONFIG, error reporting is
 disabled` at start-up. Logs go to stdout regardless, as JSON by default
 (`appwrite.logFormat`), ready for your log pipeline.

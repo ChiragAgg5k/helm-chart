@@ -360,8 +360,9 @@ database:
     shm:
       # -- Mount a memory-backed `/dev/shm`.
       enabled: true
-      # -- Size limit of `/dev/shm`.
-      sizeLimit: 256Mi
+      # -- Size limit of `/dev/shm`, as in Appwrite's Docker install. Pages
+      # count towards the memory limit only once PostgreSQL writes them.
+      sizeLimit: 1Gi
     metrics:
       # -- Run a postgres_exporter sidecar and expose it on port 9187 of the
       # Service. See docs/production.md#monitoring.
@@ -427,7 +428,7 @@ vectorsDb:
 
 # Redis, for queues, cache, pub/sub and locks. `builtin` runs a
 # single-replica StatefulSet; `external` connects to a single endpoint
-# without TLS (Appwrite 2.5.0 has no Redis TLS, Sentinel or Cluster).
+# without TLS (Appwrite 2.6.1 has no Redis TLS, Sentinel or Cluster).
 # See docs/external-databases.md#redis.
 redis:
   # -- `builtin` deploys Redis in the release; `external` uses `redis.external`.
@@ -689,6 +690,12 @@ storage:
       endpoint: ""
       # -- Region (`_APP_STORAGE_S3_REGION`).
       region: us-east-1
+      # -- Whether requests name the bucket in the path
+      # (`_APP_STORAGE_S3_PATH_STYLE`): `enabled` when `endpoint` is the bare
+      # service, `disabled` when it already addresses the bucket (such as a
+      # custom domain pointing at it). Empty lets Appwrite infer it from the
+      # endpoint. See docs/storage.md#s3.
+      pathStyle: "" # @schema enum: ["", enabled, disabled]
     # Settings of the built-in SeaweedFS (`mode: builtin`): a single-replica
     # StatefulSet running master, volume server, filer and S3 gateway in one
     # process. See docs/storage.md#built-in-object-storage.
@@ -945,7 +952,7 @@ compute:
       # -- Image repository: the orchestrator's jobs service, with the Kubernetes backend.
       repository: open-runtimes/orchestrator/jobs-service
       # -- Image tag.
-      tag: 2.2.3
+      tag: 2.2.4
       # -- Image digest.
       digest: ""
       # -- Image pull policy.
@@ -1001,7 +1008,7 @@ compute:
       # -- Image repository of the sidecar that moves sources, outputs and caches for each build.
       repository: open-runtimes/orchestrator/job-sidecar
       # -- Image tag.
-      tag: 2.2.3
+      tag: 2.2.4
       # -- Image digest.
       digest: ""
     # -- Divides each build's CPU limit to get its CPU request
@@ -1181,7 +1188,7 @@ console:
     # -- Image repository.
     repository: appwrite/new
     # -- Image tag. Pinned to the console that ships with the chart's appVersion.
-    tag: 1.2.74-self-hosted
+    tag: 1.2.97-self-hosted
     # -- Image digest.
     digest: ""
     # -- Image pull policy.
@@ -1431,7 +1438,7 @@ workers:
     # -- Coroutine budget used to size connection pools (`_APP_WORKER_MAX_COROUTINES`).
     # The default is the sum of every queue's concurrency in Appwrite's own
     # combined worker.
-    maxCoroutines: 78 # @schema minimum: 1
+    maxCoroutines: 79 # @schema minimum: 1
     # -- CPUs Appwrite sizes its connection pools for (`_APP_CPU_NUM`). Derived from resources when empty.
     cpuNum: "" # @schema type: [string, integer]
     # -- Resource requests and limits.
@@ -1516,6 +1523,15 @@ workers:
         maxReplicas: 5
         # -- Target average CPU utilisation, in percent.
         targetCPUUtilizationPercentage: 75
+    maintenance:
+      # -- Consume the `maintenance` queue. Cleanup of projects nobody used in the last 30 days, in slices the scheduler hands out; each waits while the `deletes` queue is backed up.
+      enabled: true
+      # -- Replicas.
+      replicaCount: 1 # @schema minimum: 0
+      # -- Concurrent jobs per process. Appwrite runs one at a time.
+      maxCoroutines: 1 # @schema minimum: 1; maximum: 1
+      # -- Resource requests and limits. Empty inherits `workers.resources`.
+      resources: {}
     databases:
       # -- Consume the `databases` queue. Database, collection, attribute and index changes. Must have a single consumer: `replicaCount` is capped at 1.
       enabled: true
@@ -2005,6 +2021,75 @@ autogravity:
   priorityClassName: ""
   # -- Seconds to wait on shutdown.
   terminationGracePeriodSeconds: 30
+  # -- Extra environment variables, as a list of EnvVar objects.
+  extraEnv: [] # @schema item: object
+  # -- Extra volumes.
+  extraVolumes: [] # @schema item: object
+  # -- Extra volume mounts for the main container.
+  extraVolumeMounts: [] # @schema item: object
+  # -- Extra init containers.
+  extraInitContainers: [] # @schema item: object
+  # -- Extra sidecar containers.
+  extraContainers: [] # @schema item: object
+
+# Removes location, camera and capture-time metadata from images uploaded to
+# buckets with image metadata stripping on (`_APP_EXIFTOOL_HOST`). See
+# docs/optional-components.md#exiftool.
+exiftool:
+  # -- Deploy ExifTool. Without it, buckets with stripping on keep the
+  # metadata of their images.
+  enabled: true
+  image:
+    # -- Image registry.
+    registry: ghcr.io
+    # -- Image repository.
+    repository: appwrite/exiftool
+    # -- Image tag.
+    tag: 0.1.0
+    # -- Image digest.
+    digest: ""
+    # -- Image pull policy.
+    pullPolicy: IfNotPresent # @schema enum: [Always, IfNotPresent, Never]
+  # -- Number of replicas.
+  replicaCount: 1 # @schema minimum: 0
+  # -- ExifTool processes per pod, and so images stripped at once
+  # (`MAX_CONCURRENT_STRIPS`). Each takes about 50 MiB.
+  concurrency: 2 # @schema minimum: 1
+  # -- Resource requests and limits.
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  # -- Pod security context.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  # -- Container security context.
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: [ALL]
+  # -- Pod annotations, merged over `defaults.podAnnotations`.
+  podAnnotations: {} # @schema additionalProperties: {type: string}
+  # -- Pod labels, merged over `defaults.podLabels`.
+  podLabels: {} # @schema additionalProperties: {type: string}
+  # -- Node selector. Empty inherits `defaults.nodeSelector`.
+  nodeSelector: {} # @schema additionalProperties: {type: string}
+  # -- Tolerations. Empty inherits `defaults.tolerations`.
+  tolerations: [] # @schema item: object
+  # -- Affinity. Empty inherits `defaults.affinity`.
+  affinity: {} # @schema additionalProperties: true
+  # -- Priority class. Empty inherits `defaults.priorityClassName`.
+  priorityClassName: ""
+  # -- Seconds to wait on shutdown. ExifTool lets requests finish for 30s.
+  terminationGracePeriodSeconds: 40
   # -- Extra environment variables, as a list of EnvVar objects.
   extraEnv: [] # @schema item: object
   # -- Extra volumes.

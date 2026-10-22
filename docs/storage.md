@@ -188,8 +188,14 @@ If you restricted egress with
 
 With `storage.s3.external.endpoint` empty, Appwrite talks to AWS S3 with virtual-hosted URLs
 (`<bucket>.s3.<region>.amazonaws.com`). With an endpoint, it uses path-style
-URLs (`<endpoint>/<bucket>/...`), which every S3-compatible store accepts. An
-endpoint without a scheme gets `https://`.
+URLs (`<endpoint>/<bucket>/...`), which every S3-compatible store accepts,
+unless the endpoint already names the bucket: its host is the bucket or
+starts with `<bucket>.`, or its path ends with it. A custom domain pointing
+at the bucket can't be told apart from a bare service; set
+`storage.s3.external.pathStyle: disabled` for one, or `enabled` to always
+name the bucket in the path (`_APP_STORAGE_S3_PATH_STYLE`, Appwrite 2.6 and
+later). The built-in store always uses path-style URLs. An endpoint without
+a scheme gets `https://`.
 
 | Provider | `external.endpoint` | `external.region` |
 | --- | --- | --- |
@@ -293,7 +299,7 @@ appwrite:
 ```
 
 Run ClamAV separately (for example with its official image as a Deployment).
-Appwrite 2.5.0 scans only:
+Appwrite 2.6.1 scans only:
 
 - with `device: local`. Files stored in S3 aren't scanned.
 - files up to 20 MB.

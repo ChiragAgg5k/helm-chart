@@ -1,6 +1,10 @@
 {{- if .Values.console.enabled }}
 {{- $v := .Values.console }}
 {{- $env := list (dict "name" "PORT" "value" "3000") }}
+{{- /* Shown in the console, as Appwrite's installer sets it. */}}
+{{- if not (hasKey $v.env "VITE_APPWRITE_VERSION") }}
+{{- $env = append $env (dict "name" "VITE_APPWRITE_VERSION" "value" (include "appwrite.version" .)) }}
+{{- end }}
 {{- range $k, $val := $v.env }}
 {{- $env = append $env (dict "name" $k "value" ($val | toString)) }}
 {{- end }}

@@ -3,10 +3,10 @@ name: appwrite
 description: Appwrite, the open-source backend platform, on Kubernetes. Deploys the API, console, realtime, workers and schedulers with optional built-in PostgreSQL, Redis and ClickHouse.
 type: application
 version: 2.0.0
-appVersion: "2.5.0"
+appVersion: "2.6.1"
 kubeVersion: ">=1.29.0-0"
 home: https://github.com/appwrite/helm-chart
-icon: https://raw.githubusercontent.com/appwrite/appwrite/2.5.0/public/images/logos/appwrite-icon.svg
+icon: https://raw.githubusercontent.com/appwrite/appwrite/2.6.1/public/images/logos/appwrite-icon.svg
 sources:
   - https://github.com/appwrite/helm-chart
   - https://github.com/appwrite/appwrite
@@ -67,13 +67,13 @@ annotations:
       description: '`make env-defaults` works with Appwrite 2.4.0 and later, and no longer leaves an error message in `files/env-defaults.yaml` when it fails.'
   artifacthub.io/images: |
     - name: appwrite
-      image: docker.io/appwrite/appwrite:2.5.0
+      image: docker.io/appwrite/appwrite:2.6.1
     - name: autogravity
       image: ghcr.io/appwrite/autogravity:0.0.11
     - name: browser
       image: docker.io/appwrite/browser:0.3.6
     - name: builds
-      image: ghcr.io/open-runtimes/orchestrator/job-sidecar:2.2.3
+      image: ghcr.io/open-runtimes/orchestrator/job-sidecar:2.2.4
     - name: builtin
       image: docker.io/appwrite/postgres:0.1.0
     - name: builtin
@@ -87,15 +87,17 @@ annotations:
     - name: builtin-exporter
       image: docker.io/oliver006/redis_exporter:v1.93.0-alpine
     - name: console
-      image: docker.io/appwrite/new:1.2.74-self-hosted
+      image: docker.io/appwrite/new:1.2.97-self-hosted
     - name: dind
       image: docker.io/library/docker:29.9.0-dind
     - name: embedding
       image: docker.io/appwrite/embedding:0.3.1
     - name: executor
       image: docker.io/openruntimes/executor:1.1.2
+    - name: exiftool
+      image: ghcr.io/appwrite/exiftool:0.1.0
     - name: geo
       image: docker.io/appwrite/geo:0.3.2
     - name: orchestrator
-      image: ghcr.io/open-runtimes/orchestrator/jobs-service:2.2.3
+      image: ghcr.io/open-runtimes/orchestrator/jobs-service:2.2.4
   artifacthub.io/displayName: Appwrite

@@ -1,6 +1,6 @@
 # Appwrite Helm chart
 
-![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.5.0](https://img.shields.io/badge/AppVersion-2.5.0-informational?style=flat-square)
+![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.6.1](https://img.shields.io/badge/AppVersion-2.6.1-informational?style=flat-square)
 
 Appwrite, the open-source backend platform, on Kubernetes. Deploys the API, console, realtime, workers and schedulers with optional built-in PostgreSQL, Redis and ClickHouse.
 
@@ -168,7 +168,7 @@ See the [architecture guide](https://github.com/appwrite/helm-chart/blob/main/do
 - **Highly available datastores.** The built-in ones are single replicas. Use
   managed services or operators in production
   ([guide](https://github.com/appwrite/helm-chart/blob/main/docs/external-databases.md)).
-- **Metrics.** Appwrite 2.5.0 exposes no Prometheus metrics.
+- **Metrics.** Appwrite 2.6.1 exposes no Prometheus metrics.
 
 ## Documentation
 
@@ -334,9 +334,9 @@ The main database, built-in PostgreSQL or your own, and the optional DocumentsDB
 | database.builtin.podSecurityContext | object | `{"fsGroup":999,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":999,"runAsNonRoot":true,"runAsUser":999,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod security context. The image's `postgres` user is UID 999. |
 | database.builtin.priorityClassName | string | `""` | Priority class. Empty inherits `defaults.priorityClassName`. |
 | database.builtin.resources | object | `{"limits":{"memory":"2Gi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resource requests and limits. |
-| database.builtin.shm | object | `{"enabled":true,"sizeLimit":"256Mi"}` | Shared memory for PostgreSQL (`/dev/shm`). Container runtimes give 64Mi by default, which parallel queries and large index builds outgrow. It counts against the memory limit. |
+| database.builtin.shm | object | `{"enabled":true,"sizeLimit":"1Gi"}` | Shared memory for PostgreSQL (`/dev/shm`). Container runtimes give 64Mi by default, which parallel queries and large index builds outgrow. It counts against the memory limit. |
 | database.builtin.shm.enabled | bool | `true` | Mount a memory-backed `/dev/shm`. |
-| database.builtin.shm.sizeLimit | string | `"256Mi"` | Size limit of `/dev/shm`. |
+| database.builtin.shm.sizeLimit | string | `"1Gi"` | Size limit of `/dev/shm`, as in Appwrite's Docker install. Pages count towards the memory limit only once PostgreSQL writes them. |
 | database.builtin.terminationGracePeriodSeconds | int | `60` | Seconds to wait on shutdown. |
 | database.builtin.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
 | database.connectionsMax | int | `151` | Database connection budget Appwrite sizes its pools from (`_APP_CONNECTIONS_MAX`). Every Appwrite process gets pools of `connectionsMax / poolClients / (_APP_CPU_NUM * _APP_WORKER_PER_CORE)` connections, rounded down, but at least 1 and at least `_APP_WORKER_MAX_COROUTINES`, with separate pools for the `console` and `database_db_main` connections. Pools fill on demand, and at peak the total can exceed this value. Keep it well below the database's `max_connections`; see docs/external-databases.md#connections. |
@@ -495,6 +495,7 @@ Where files go (the volume or S3), and the `/storage` volume.
 | storage.s3.builtin.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
 | storage.s3.builtin.volumeSizeLimitMB | int | `1024` | Size of each SeaweedFS volume file in MB. The store fills the disk with volumes of this size, so keep it well below `persistence.size`. |
 | storage.s3.external.endpoint | string | `""` | Endpoint (`_APP_STORAGE_S3_ENDPOINT`), e.g. `https://fsn1.your-objectstorage.com` or `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3. Endpoints and regions per provider: docs/storage.md#s3. |
+| storage.s3.external.pathStyle | string | `""` | Whether requests name the bucket in the path (`_APP_STORAGE_S3_PATH_STYLE`): `enabled` when `endpoint` is the bare service, `disabled` when it already addresses the bucket (such as a custom domain pointing at it). Empty lets Appwrite infer it from the endpoint. See docs/storage.md#s3. |
 | storage.s3.external.region | string | `"us-east-1"` | Region (`_APP_STORAGE_S3_REGION`). |
 | storage.s3.mode | string | `"builtin"` | `builtin` runs SeaweedFS, an S3-compatible store, in the release; `external` uses `storage.s3.external`. Only used with `device: s3`. |
 | storage.s3.secretAccessKey.secretKey | string | `"s3-secret-key"` | Key in the Secret. |
@@ -594,7 +595,7 @@ The SMTP server Appwrite sends mail through.
 | console.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | console.image.registry | string | `"docker.io"` | Image registry. |
 | console.image.repository | string | `"appwrite/new"` | Image repository. |
-| console.image.tag | string | `"1.2.74-self-hosted"` | Image tag. Pinned to the console that ships with the chart's appVersion. |
+| console.image.tag | string | `"1.2.97-self-hosted"` | Image tag. Pinned to the console that ships with the chart's appVersion. |
 | console.livenessProbe.enabled | bool | `true` | Enable the liveness probe. |
 | console.livenessProbe.failureThreshold | int | `3` | Consecutive failures before the probe counts as failed. |
 | console.livenessProbe.periodSeconds | int | `20` | Seconds between probes. |
@@ -723,7 +724,7 @@ The SMTP server Appwrite sends mail through.
 | tasks.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
 | workers.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
 | workers.combined.cpuNum | string | `""` | CPUs Appwrite sizes its connection pools for (`_APP_CPU_NUM`). Derived from resources when empty. |
-| workers.combined.maxCoroutines | int | `78` | Coroutine budget used to size connection pools (`_APP_WORKER_MAX_COROUTINES`). The default is the sum of every queue's concurrency in Appwrite's own combined worker. |
+| workers.combined.maxCoroutines | int | `79` | Coroutine budget used to size connection pools (`_APP_WORKER_MAX_COROUTINES`). The default is the sum of every queue's concurrency in Appwrite's own combined worker. |
 | workers.combined.processes | int | `1` | Worker processes per pod (`_APP_WORKERS_NUM`). Must be 1: each process would consume the `databases` queue. |
 | workers.combined.replicaCount | int | `1` | Replicas. Capped at 1, because the `databases` queue must have a single consumer; use `separate` or `grouped` to scale other queues. |
 | workers.combined.resources | object | `{"limits":{"memory":"2Gi"},"requests":{"cpu":"250m","memory":"512Mi"}}` | Resource requests and limits. |
@@ -800,6 +801,10 @@ The SMTP server Appwrite sends mail through.
 | workers.queues.mails.maxCoroutines | int | `1` | Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`). |
 | workers.queues.mails.replicaCount | int | `1` | Replicas. |
 | workers.queues.mails.resources | object | `{}` | Resource requests and limits. Empty inherits `workers.resources`. |
+| workers.queues.maintenance.enabled | bool | `true` | Consume the `maintenance` queue. Cleanup of projects nobody used in the last 30 days, in slices the scheduler hands out; each waits while the `deletes` queue is backed up. |
+| workers.queues.maintenance.maxCoroutines | int | `1` | Concurrent jobs per process. Appwrite runs one at a time. |
+| workers.queues.maintenance.replicaCount | int | `1` | Replicas. |
+| workers.queues.maintenance.resources | object | `{}` | Resource requests and limits. Empty inherits `workers.resources`. |
 | workers.queues.messaging.autoscaling.enabled | bool | `false` | Create a HorizontalPodAutoscaler. |
 | workers.queues.messaging.autoscaling.maxReplicas | int | `5` | Maximum replicas. |
 | workers.queues.messaging.autoscaling.minReplicas | int | `1` | Minimum replicas. |
@@ -879,7 +884,7 @@ The build orchestrator and the executor.
 | compute.builds.sidecarImage.digest | string | `""` | Image digest. |
 | compute.builds.sidecarImage.registry | string | `"ghcr.io"` | Image registry. |
 | compute.builds.sidecarImage.repository | string | `"open-runtimes/orchestrator/job-sidecar"` | Image repository of the sidecar that moves sources, outputs and caches for each build. |
-| compute.builds.sidecarImage.tag | string | `"2.2.3"` | Image tag. |
+| compute.builds.sidecarImage.tag | string | `"2.2.4"` | Image tag. |
 | compute.builds.tolerations | list | `[]` | Tolerations for build pods. |
 | compute.enabled | bool | `true` | Enable Functions and Sites. Needs `storage.device: s3`, and runs the executor as a privileged pod in a namespace of its own (see docs/executor.md). Set to false on clusters that forbid privileged pods. |
 | compute.executor.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
@@ -922,7 +927,7 @@ The build orchestrator and the executor.
 | compute.orchestrator.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | compute.orchestrator.image.registry | string | `"ghcr.io"` | Image registry. |
 | compute.orchestrator.image.repository | string | `"open-runtimes/orchestrator/jobs-service"` | Image repository: the orchestrator's jobs service, with the Kubernetes backend. |
-| compute.orchestrator.image.tag | string | `"2.2.3"` | Image tag. |
+| compute.orchestrator.image.tag | string | `"2.2.4"` | Image tag. |
 | compute.orchestrator.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
 | compute.orchestrator.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
 | compute.orchestrator.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
@@ -1107,6 +1112,34 @@ Image, security contexts, scheduling defaults, names, labels and extra objects.
 | serviceAccount.automountServiceAccountToken | bool | `false` | `automountServiceAccountToken` on the ServiceAccount object. The chart's pods set it to false themselves, which takes precedence, so this only affects other pods that use the ServiceAccount. Appwrite doesn't call the Kubernetes API. |
 | serviceAccount.create | bool | `true` | Create the shared ServiceAccount. |
 | serviceAccount.name | string | `""` | Name of the ServiceAccount. Defaults to the fullname when `create` is true, `default` otherwise. |
+
+### Other values
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| exiftool.affinity | object | `{}` | Affinity. Empty inherits `defaults.affinity`. |
+| exiftool.concurrency | int | `2` | ExifTool processes per pod, and so images stripped at once (`MAX_CONCURRENT_STRIPS`). Each takes about 50 MiB. |
+| exiftool.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true}` | Container security context. |
+| exiftool.enabled | bool | `true` | Deploy ExifTool. Without it, buckets with stripping on keep the metadata of their images. |
+| exiftool.extraContainers | list | `[]` | Extra sidecar containers. |
+| exiftool.extraEnv | list | `[]` | Extra environment variables, as a list of EnvVar objects. |
+| exiftool.extraInitContainers | list | `[]` | Extra init containers. |
+| exiftool.extraVolumeMounts | list | `[]` | Extra volume mounts for the main container. |
+| exiftool.extraVolumes | list | `[]` | Extra volumes. |
+| exiftool.image.digest | string | `""` | Image digest. |
+| exiftool.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
+| exiftool.image.registry | string | `"ghcr.io"` | Image registry. |
+| exiftool.image.repository | string | `"appwrite/exiftool"` | Image repository. |
+| exiftool.image.tag | string | `"0.1.0"` | Image tag. |
+| exiftool.nodeSelector | object | `{}` | Node selector. Empty inherits `defaults.nodeSelector`. |
+| exiftool.podAnnotations | object | `{}` | Pod annotations, merged over `defaults.podAnnotations`. |
+| exiftool.podLabels | object | `{}` | Pod labels, merged over `defaults.podLabels`. |
+| exiftool.podSecurityContext | object | `{"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod security context. |
+| exiftool.priorityClassName | string | `""` | Priority class. Empty inherits `defaults.priorityClassName`. |
+| exiftool.replicaCount | int | `1` | Number of replicas. |
+| exiftool.resources | object | `{"limits":{"memory":"512Mi"},"requests":{"cpu":"20m","memory":"128Mi"}}` | Resource requests and limits. |
+| exiftool.terminationGracePeriodSeconds | int | `40` | Seconds to wait on shutdown. ExifTool lets requests finish for 30s. |
+| exiftool.tolerations | list | `[]` | Tolerations. Empty inherits `defaults.tolerations`. |
 
 ## License
 

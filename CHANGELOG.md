@@ -10,13 +10,38 @@ annotation in `charts/appwrite/Chart.yaml`.
 
 ### Changed
 
+- Appwrite 2.6.1, with console 1.2.97 and the orchestrator's jobs service
+  and job sidecar 2.2.4. The console shows the Appwrite version
+  (`VITE_APPWRITE_VERSION`).
 - The browser is on by default (`browser.enabled`), since Sites are: it
   renders their preview screenshots. Without it, every site deployment logs
   "Screenshot capturing failed" and the console shows no preview.
+- The API's startup probe waits for the marker Appwrite 2.6 writes once it
+  has created its core schema, so no traffic reaches a pod that would answer
+  500 until then.
+- The built-in PostgreSQL gets a 1Gi `/dev/shm`, up from 256Mi, as in
+  Appwrite's Docker install.
+- The combined worker sizes its pools for 79 coroutines, up from 78, for the
+  new `maintenance` queue.
 
 ### Added
 
+- ExifTool, on by default (`exiftool.enabled`), which removes location,
+  camera and capture-time metadata from images uploaded to buckets with
+  *Image metadata* stripping on ([optional-components.md](docs/optional-components.md#exiftool)).
+- The `maintenance` queue, which cleans up projects nobody used in the last
+  30 days: consumed by the combined worker, by `worker-maintenance` in
+  `separate` mode, and in `grouped` mode by the group that lists it, or a
+  `worker-maintenance` Deployment of its own when none does. With
+  `tasks.scheduler.mode: separate`, a `scheduler-maintenance` task schedules
+  it ([architecture.md](docs/architecture.md#worker-topologies)).
+- `storage.s3.external.pathStyle` (`_APP_STORAGE_S3_PATH_STYLE`), for
+  endpoints Appwrite 2.6 can't tell are bucket addresses, such as a custom
+  domain ([storage.md](docs/storage.md#your-own-s3-store)). The built-in
+  store always uses path-style requests.
+- Entire as a Git provider in integrations.md ([integrations.md](docs/integrations.md#entire)).
 - Troubleshooting for site deployments whose screenshot fails.
+- CI upgrades from the published chart 2.0.0 with default values.
 
 ## [2.0.0] - 2026-10-14
 

@@ -5,8 +5,8 @@ keeping all data.
 
 Before you start:
 
-- **Same Appwrite version.** The chart deploys Appwrite 2.5.0. Upgrade the
-  Docker install to 2.5.0 first, including its data migration. A Docker
+- **Same Appwrite version.** The chart deploys Appwrite 2.6.1. Upgrade the
+  Docker install to 2.6.1 first, including its data migration. A Docker
   install on 2.2.0 can also move as it is: install the chart with
   `--set image.tag=2.2.0` in step 3 and drop it in step 5, which then runs
   the migration; give that upgrade a `--timeout` long enough for it
@@ -95,7 +95,7 @@ credentials, and a copy in `appwrite.config` would override them:
 - `_APP_EXECUTOR_SECRET`, `_APP_EXECUTOR_HOST`, `_APP_JOBS_SECRET`,
   `_APP_JOBS_HOST`, `_APP_JOBS_ENDPOINT`, `_APP_BUILDS_VOLUME`
 - `_APP_GEO_ENDPOINT`, `_APP_MIGRATION_HOST`, `_APP_BROWSER_HOST`,
-  `_APP_AUTOGRAVITY_HOST`
+  `_APP_EXIFTOOL_HOST`, `_APP_AUTOGRAVITY_HOST`, `_APP_STORAGE_S3_PATH_STYLE`
 
 For an external database, Redis or ClickHouse, set `database.mode`,
 `redis.mode` or `clickhouse.mode` to `external` and fill in its `external`
