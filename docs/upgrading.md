@@ -10,6 +10,7 @@ the chart upgrades Appwrite. You can pin a different Appwrite version with
 | --- | --- |
 | 1.0.0 | 2.3.0 |
 | 2.0.0 | 2.5.0 |
+| 2.1.0 | 2.6.1 |
 
 The [changelog](../CHANGELOG.md) lists what changed in each chart version,
 and [version notes](#version-notes) what you have to do about it.
@@ -181,6 +182,58 @@ first. Each entry says what changed, what to do, and shows the values before
 and after. A release without an entry needs nothing beyond `helm upgrade`.
 When you skip versions, apply the entries of every version in between,
 oldest first.
+
+### To 2.1.0
+
+Appwrite 2.6.1. The data migration runs: 2.5 and 2.6 share a migration
+class, but 2.6's adds fields (resource descriptions, the buckets' image
+metadata setting), so back up first. The built-in PostgreSQL restarts once,
+for its larger `/dev/shm`.
+
+**New pods.** ExifTool (`exiftool.enabled`) and the browser
+(`browser.enabled`) are on by default. With `workers.mode: separate`, a
+`worker-maintenance` Deployment joins the workers, and with
+`tasks.scheduler.mode: separate`, a `scheduler-maintenance` task. Set
+`exiftool.enabled: false` or `browser.enabled: false` to leave one out.
+
+**Grouped workers:** the new `maintenance` queue runs in a
+`worker-maintenance` Deployment of its own unless a group lists it. To keep
+the number of pods, add it to a group:
+
+```yaml
+workers:
+  groups:
+    core:
+      queues: [databases, deletes, maintenance, mails, messaging, notifications, certificates, migrations, webhooks]
+```
+
+**Your own S3 store:** Appwrite 2.6 no longer always names the bucket in
+the path. It infers the style from `storage.s3.external.endpoint`, and treats
+an endpoint whose host starts with `<bucket>.`, or whose path ends with the
+bucket, as the bucket's own address. To keep 2.5's requests exactly, set:
+
+```yaml
+storage:
+  s3:
+    external:
+      pathStyle: enabled
+```
+
+Set `disabled` instead for a custom domain that points at the bucket
+([storage.md](storage.md#your-own-s3-store)). The built-in store needs
+nothing.
+
+**What Appwrite 2.6 changes** for self-hosters (release notes:
+[2.6.0](https://github.com/appwrite/appwrite/releases/tag/2.6.0),
+[2.6.1](https://github.com/appwrite/appwrite/releases/tag/2.6.1)):
+
+- API key secrets are hidden from callers without the `keys.write` scope.
+- Outbound TLS no longer trusts the compromised eMudhra certificate chains;
+  webhook targets, OAuth2 providers or SMTP servers that present one fail
+  until they replace it.
+- Inactive projects are cleaned up on their own schedule,
+  `_APP_MAINTENANCE_INACTIVE_INTERVAL` (604800 seconds, a week), set through
+  `appwrite.config`.
 
 ### To 2.0.0
 

@@ -8,6 +8,11 @@ annotation in `charts/appwrite/Chart.yaml`.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-22
+
+Appwrite 2.6.1. Upgrading from 2.0.0: see
+[docs/upgrading.md](docs/upgrading.md#to-210).
+
 ### Changed
 
 - Appwrite 2.6.1, with console 1.2.97 and the orchestrator's jobs service
@@ -23,6 +28,7 @@ annotation in `charts/appwrite/Chart.yaml`.
   Appwrite's Docker install.
 - The combined worker sizes its pools for 79 coroutines, up from 78, for the
   new `maintenance` queue.
+- CI upgrades from the published chart 2.0.0 with default values.
 
 ### Added
 
@@ -39,9 +45,9 @@ annotation in `charts/appwrite/Chart.yaml`.
   endpoints Appwrite 2.6 can't tell are bucket addresses, such as a custom
   domain ([storage.md](docs/storage.md#your-own-s3-store)). The built-in
   store always uses path-style requests.
-- Entire as a Git provider in integrations.md ([integrations.md](docs/integrations.md#entire)).
+- Setup notes for Entire, the Git provider Appwrite 2.6 adds
+  ([integrations.md](docs/integrations.md#entire)).
 - Troubleshooting for site deployments whose screenshot fails.
-- CI upgrades from the published chart 2.0.0 with default values.
 
 ## [2.0.0] - 2026-10-14
 
