@@ -36,6 +36,7 @@ What that means for each pod:
 | SeaweedFS | 1000 | Runs as root in its own image; the chart sets UID 1000. The S3 users file is written to `/tmp` from the chart's Secret on start. |
 | ClickHouse | `clickhouse` (101) | Users and logging come from mounted files, because the image's entrypoint would otherwise write them to `/etc`. Logs go to stdout. |
 | Browser | 999 | `/dev/shm` is a memory `emptyDir`. |
+| ExifTool | 65532 | Uploads are written to `/tmp` while they're stripped. |
 | Autogravity | 65532 | |
 | Embedding | 10001 | Models are kept on their own PersistentVolumeClaim. |
 | Orchestrator | `nonroot` (65532) | The only pod with a ServiceAccount token, for its Role in the build namespace. |
@@ -277,7 +278,7 @@ which carry the label `appwrite/datastore-client: "true"`.
 | --- | --- | --- |
 | `<fullname>-edge` | API, console, realtime | `networkPolicy.ingress.from` on the HTTP port (any source when empty); pods of the release on any port |
 | `<fullname>-builds-to-api` | API (`compute.enabled`) | build pods, on the HTTP port |
-| `<fullname>-internal` | geo, browser, autogravity, embedding | pods of the release |
+| `<fullname>-internal` | geo, browser, ExifTool, autogravity, embedding | pods of the release |
 | `<fullname>-datastores` | PostgreSQL, Redis, ClickHouse | Appwrite pods of the release; on the metrics ports (`database.builtin.metrics.enabled` and the same under `redis` and `clickhouse`), also `networkPolicy.metrics.from` |
 | `<fullname>-object-storage` | SeaweedFS (`storage.s3.mode: builtin` with `device: s3`) | Appwrite pods and the orchestrator of the release, build pods and the executor, on the S3 port |
 | `<fullname>-background` | workers and tasks | nothing |

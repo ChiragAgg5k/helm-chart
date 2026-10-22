@@ -1,13 +1,16 @@
 {{/*
 Queues Appwrite's worker consumes, keyed by their values.yaml name, with the
 concurrency Appwrite uses for each (app/config/workers.php) and the storage
-they need.
+they need. In grouped mode, a queue marked optional that no group lists gets
+a Deployment of its own, so groups written before Appwrite added it still
+render.
 */}}
 {{- define "appwrite.workers.catalog" -}}
 statsUsage: {name: stats-usage, coroutines: 8}
 statsResources: {name: stats-resources, coroutines: 1}
 webhooks: {name: webhooks, coroutines: 8}
 deletes: {name: deletes, coroutines: 8, storage: true}
+maintenance: {name: maintenance, coroutines: 1, optional: true}
 databases: {name: databases, coroutines: 1}
 builds: {name: builds, coroutines: 8, storage: true}
 jobs: {name: jobs, coroutines: 8, storage: true}
@@ -71,6 +74,14 @@ Worker Deployments to render, as a YAML list. Each item has:
 {{- $_ := set $values "maxCoroutines" (max $coroutines 1) }}
 {{- end }}
 {{- $out = append $out (dict "component" (printf "worker-%s" $group) "queues" $g.queues "values" $values "storage" $storage "certbot" $certbot "singleton" (has "databases" $g.queues)) }}
+{{- end }}
+{{- $grouped := list }}
+{{- range $w.groups }}{{ $grouped = concat $grouped (.queues | default list) }}{{ end }}
+{{- range $key, $q := $catalog }}
+{{- if and $q.optional (not (has $q.name $grouped)) }}
+{{- $values := dict "replicaCount" 1 "processes" 1 "maxCoroutines" $q.coroutines "resources" $w.resources }}
+{{- $out = append $out (dict "component" (printf "worker-%s" $q.name) "queues" (list $q.name) "values" $values "storage" ($q.storage | default false) "certbot" ($q.certbot | default false) "singleton" false) }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- toYaml $out }}

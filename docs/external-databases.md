@@ -141,7 +141,7 @@ Set any that differ on yours.
   CREATE EXTENSION IF NOT EXISTS pg_trgm;
   ```
 
-- **Extensions.** Appwrite 2.5.0 uses three, which Appwrite's own image
+- **Extensions.** Appwrite 2.6.1 uses three, which Appwrite's own image
   (`appwrite/postgres`, PostgreSQL 18) ships:
 
   | Extension | Used for |
@@ -309,7 +309,7 @@ database:
 
 - **One host, no TLS.** Appwrite connects to a single host with a username
   and password. It doesn't take connection strings, so SRV records
-  (`mongodb+srv://`) and TLS aren't supported in 2.5.0. That rules out
+  (`mongodb+srv://`) and TLS aren't supported in 2.6.1. That rules out
   MongoDB Atlas.
 
 ## Connections
@@ -333,7 +333,7 @@ pool size = max(1, floor(connectionsMax / (poolClients × cpuNum × workerPerCor
 | --- | --- | --- |
 | `api` | `cpuNum` × `appwrite.workerPerCore` (6) | 1 |
 | `realtime` | `realtime.processes` (1) | 1 |
-| `worker` (`combined`) | 1 | `workers.combined.maxCoroutines` (78) |
+| `worker` (`combined`) | 1 | `workers.combined.maxCoroutines` (79) |
 | `worker-<queue>` (`separate`) | 1 | the queue's `maxCoroutines` (1 or 8) |
 | `worker-<group>` (`grouped`) | the group's `processes` (1) | the group's `maxCoroutines`, by default the sum of its queues' |
 | `scheduler`, or `scheduler-*` and `stats-resources` | 1 | 8 |
@@ -354,11 +354,11 @@ two pools), the middle term of the formula is `floor(151 / (15 × 1 × 6))` = 1:
 | --- | --- | --- | --- | --- |
 | `api` | 1 | 6 | 1 | 12 |
 | `realtime` | 1 | 1 | 1 | 2 |
-| `worker` | 1 | 1 | 78 | 156 |
+| `worker` | 1 | 1 | 79 | 158 |
 | `scheduler` | 1 | 1 | 8 | 16 |
 | `maintenance` | 1 | 1 | 1 | 2 |
 | `interval` | 1 | 1 | 1 | 2 |
-| **Total** | | | | **190** |
+| **Total** | | | | **192** |
 
 From there, each extra API pod adds 12, and each extra worker replica adds
 twice its `maxCoroutines`. Raising `connectionsMax` to 270 with
@@ -396,7 +396,7 @@ redis:
 
 ### Requirements
 
-- **One endpoint, no TLS.** Appwrite 2.5.0 connects to a single Redis
+- **One endpoint, no TLS.** Appwrite 2.6.1 connects to a single Redis
   endpoint in plain text. TLS, Sentinel and Redis Cluster aren't supported.
   Valkey works as a drop-in replacement.
 - **Memory that never runs out.** Redis holds the job queues as well as the

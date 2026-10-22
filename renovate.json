@@ -226,6 +226,7 @@
         "docker.io/appwrite/embedding",
         "docker.io/appwrite/postgres",
         "ghcr.io/appwrite/autogravity",
+        "ghcr.io/appwrite/exiftool",
         "ghcr.io/open-runtimes/orchestrator/jobs-service",
         "ghcr.io/open-runtimes/orchestrator/job-sidecar",
         "docker.io/openruntimes/executor"

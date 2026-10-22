@@ -2,11 +2,11 @@ apiVersion: v2
 name: appwrite
 description: Appwrite, the open-source backend platform, on Kubernetes. Deploys the API, console, realtime, workers and schedulers with optional built-in PostgreSQL, Redis and ClickHouse.
 type: application
-version: 2.0.0
-appVersion: "2.5.0"
+version: 2.1.0
+appVersion: "2.6.1"
 kubeVersion: ">=1.29.0-0"
 home: https://github.com/appwrite/helm-chart
-icon: https://raw.githubusercontent.com/appwrite/appwrite/2.5.0/public/images/logos/appwrite-icon.svg
+icon: https://raw.githubusercontent.com/appwrite/appwrite/2.6.1/public/images/logos/appwrite-icon.svg
 sources:
   - https://github.com/appwrite/helm-chart
   - https://github.com/appwrite/appwrite
@@ -38,42 +38,48 @@ annotations:
       url: https://github.com/appwrite/helm-chart/issues
   artifacthub.io/changes: |
     - kind: changed
-      description: 'Functions and Sites are on by default: `compute.enabled` and `compute.executor.privileged` default to `true`, so a plain install runs the executor as a privileged pod in a namespace of its own. Set `compute.enabled: false` on clusters that forbid privileged pods.'
+      description: Appwrite 2.6.1, with console 1.2.97 and the orchestrator's jobs service and job sidecar 2.2.4. The console shows the Appwrite version (`VITE_APPWRITE_VERSION`).
     - kind: changed
-      description: 'Files are stored in object storage by default: `storage.device` defaults to `s3`, served by the built-in SeaweedFS. To keep 1.0.0''s behaviour, set `storage.device: local` and `compute.enabled: false`.'
+      description: 'The browser is on by default (`browser.enabled`), since Sites are: it renders their preview screenshots. Without it, every site deployment logs "Screenshot capturing failed" and the console shows no preview.'
     - kind: changed
-      description: Appwrite 2.5.0, with console 1.2.74, executor 1.1.2, browser 0.3.6 and geo 0.3.2, and the new trusted-proxy, internal-address and DNS settings in the environment defaults (networking.md).
-      links:
-        - name: networking.md
-          url: https://github.com/appwrite/helm-chart/blob/main/docs/networking.md#tls-and-forcehttps
+      description: The API's startup probe waits for the marker Appwrite 2.6 writes once it has created its core schema, so no traffic reaches a pod that would answer 500 until then.
     - kind: changed
-      description: 'External S3 settings move to `storage.s3.external.endpoint` and `storage.s3.external.region`, with `storage.s3.mode: external`. Setting the old keys fails with where they went.'
+      description: The built-in PostgreSQL gets a 1Gi `/dev/shm`, up from 256Mi, as in Appwrite's Docker install.
     - kind: changed
-      description: ClickHouse drops its per-second metric, trace and text logs and gives tables left behind by a config change a TTL, as Appwrite 2.4.0 does.
+      description: The combined worker sizes its pools for 79 coroutines, up from 78, for the new `maintenance` queue.
     - kind: changed
-      description: CI upgrades from the published chart 1.0.0 with default values.
+      description: CI upgrades from the published chart 2.0.0 with default values.
     - kind: added
-      description: 'Built-in object storage: SeaweedFS as a single-replica StatefulSet (`storage.s3.mode: builtin`), with generated keys, the bucket created on start, and a NetworkPolicy that admits only Appwrite, the orchestrator, builds and the executor (storage.md).'
+      description: ExifTool, on by default (`exiftool.enabled`), which removes location, camera and capture-time metadata from images uploaded to buckets with *Image metadata* stripping on (optional-components.md).
+      links:
+        - name: optional-components.md
+          url: https://github.com/appwrite/helm-chart/blob/main/docs/optional-components.md#exiftool
+    - kind: added
+      description: 'The `maintenance` queue, which cleans up projects nobody used in the last 30 days: consumed by the combined worker, by `worker-maintenance` in `separate` mode, and in `grouped` mode by the group that lists it, or a `worker-maintenance` Deployment of its own when none does. With `tasks.scheduler.mode: separate`, a `scheduler-maintenance` task schedules it (architecture.md).'
+      links:
+        - name: architecture.md
+          url: https://github.com/appwrite/helm-chart/blob/main/docs/architecture.md#worker-topologies
+    - kind: added
+      description: '`storage.s3.external.pathStyle` (`_APP_STORAGE_S3_PATH_STYLE`), for endpoints Appwrite 2.6 can''t tell are bucket addresses, such as a custom domain (storage.md). The built-in store always uses path-style requests.'
       links:
         - name: storage.md
-          url: https://github.com/appwrite/helm-chart/blob/main/docs/storage.md#built-in-object-storage
+          url: https://github.com/appwrite/helm-chart/blob/main/docs/storage.md#your-own-s3-store
     - kind: added
-      description: Troubleshooting for deployments that fail with an internal error while Functions and Sites are off.
-    - kind: removed
-      description: 'The assistant: Appwrite removed it in 2.4.0. Setting `assistant.*` fails with that message.'
-    - kind: fixed
-      description: 'Site screenshots: the browser gets the API Service in `ALLOWED_HOSTS`, as browser 0.3.5 and later require for private addresses.'
-    - kind: fixed
-      description: '`make env-defaults` works with Appwrite 2.4.0 and later, and no longer leaves an error message in `files/env-defaults.yaml` when it fails.'
+      description: Setup notes for Entire, the Git provider Appwrite 2.6 adds (integrations.md).
+      links:
+        - name: integrations.md
+          url: https://github.com/appwrite/helm-chart/blob/main/docs/integrations.md#entire
+    - kind: added
+      description: Troubleshooting for site deployments whose screenshot fails.
   artifacthub.io/images: |
     - name: appwrite
-      image: docker.io/appwrite/appwrite:2.5.0
+      image: docker.io/appwrite/appwrite:2.6.1
     - name: autogravity
       image: ghcr.io/appwrite/autogravity:0.0.11
     - name: browser
       image: docker.io/appwrite/browser:0.3.6
     - name: builds
-      image: ghcr.io/open-runtimes/orchestrator/job-sidecar:2.2.3
+      image: ghcr.io/open-runtimes/orchestrator/job-sidecar:2.2.4
     - name: builtin
       image: docker.io/appwrite/postgres:0.1.0
     - name: builtin
@@ -87,15 +93,17 @@ annotations:
     - name: builtin-exporter
       image: docker.io/oliver006/redis_exporter:v1.93.0-alpine
     - name: console
-      image: docker.io/appwrite/new:1.2.74-self-hosted
+      image: docker.io/appwrite/new:1.2.97-self-hosted
     - name: dind
       image: docker.io/library/docker:29.9.0-dind
     - name: embedding
       image: docker.io/appwrite/embedding:0.3.1
     - name: executor
       image: docker.io/openruntimes/executor:1.1.2
+    - name: exiftool
+      image: ghcr.io/appwrite/exiftool:0.1.0
     - name: geo
       image: docker.io/appwrite/geo:0.3.2
     - name: orchestrator
-      image: ghcr.io/open-runtimes/orchestrator/jobs-service:2.2.3
+      image: ghcr.io/open-runtimes/orchestrator/jobs-service:2.2.4
   artifacthub.io/displayName: Appwrite

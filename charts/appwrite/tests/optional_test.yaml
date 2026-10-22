@@ -1,6 +1,8 @@
 suite: optional components
 templates:
   - templates/browser/deployment.yaml
+  - templates/exiftool/deployment.yaml
+  - templates/exiftool/service.yaml
   - templates/autogravity/deployment.yaml
   - templates/embedding/deployment.yaml
   - templates/embedding/pvc.yaml
@@ -18,6 +20,71 @@ tests:
     asserts:
       - hasDocuments:
           count: 1
+
+  - it: deploys ExifTool by default and points Appwrite at it
+    templates:
+      - templates/exiftool/deployment.yaml
+      - templates/exiftool/service.yaml
+      - templates/configmap-env.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: templates/exiftool/deployment.yaml
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+        template: templates/exiftool/service.yaml
+      - equal:
+          path: data._APP_EXIFTOOL_HOST
+          value: http://aw-appwrite-exiftool:8080
+        template: templates/configmap-env.yaml
+
+  - it: leaves images as uploaded without ExifTool
+    set:
+      exiftool.enabled: false
+    templates:
+      - templates/exiftool/deployment.yaml
+      - templates/exiftool/service.yaml
+      - templates/configmap-env.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: templates/exiftool/deployment.yaml
+      - hasDocuments:
+          count: 0
+        template: templates/exiftool/service.yaml
+      - equal:
+          path: data._APP_EXIFTOOL_HOST
+          value: ""
+        template: templates/configmap-env.yaml
+
+  - it: runs ExifTool unprivileged with a writable /tmp and a fixed process pool
+    template: templates/exiftool/deployment.yaml
+    set:
+      exiftool.concurrency: 4
+      exiftool.replicaCount: 2
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 2
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: MAX_CONCURRENT_STRIPS, value: "4"}
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 65532
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content: {name: tmp, mountPath: /tmp}
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /readyz
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /livez
 
   - it: deploys none of the others by default
     templates:

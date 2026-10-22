@@ -2,6 +2,12 @@
 {{- $v := .Values.api }}
 {{- $host := include "appwrite.api.internalHost" . }}
 {{- $handler := dict "httpGet" (dict "path" "/v1/health/version" "port" "http" "httpHeaders" (list (dict "name" "Host" "value" $host))) }}
+{{- /* The API answers before it has created the core schema, and requests that
+reach a missing collection fail until then. app/http.php writes the marker
+once the schema exists (APP_READINESS_MARKER), so the pod starts on that.
+The image's /usr/local/bin/test runs PHPUnit, so use the shell's builtin. */}}
+{{- $marker := dict "exec" (dict "command" (list "sh" "-c" "test -f /tmp/.appwrite-ready")) }}
+{{- $probes := print (include "appwrite.probes" (dict "values" (pick $v "startupProbe") "handler" $marker)) (include "appwrite.probes" (dict "values" (pick $v "readinessProbe" "livenessProbe") "handler" $handler)) }}
 {{- $env := include "appwrite.env" (dict "root" . "cpuNum" (include "appwrite.cpuNum" $v) "extra" (dict "PORT" "8080")) }}
 {{- $init := include "appwrite.initContainer.waitForTcp" (dict "root" . "name" "wait-for-datastores" "targets" (include "appwrite.datastoreTargets" . | splitList ",")) }}
 {{- include "appwrite.deployment" (dict
@@ -12,7 +18,7 @@
   "command" (list "php" "app/http.php")
   "env" $env
   "ports" (list (dict "name" "http" "containerPort" 8080 "protocol" "TCP"))
-  "probes" (include "appwrite.probes" (dict "values" $v "handler" $handler))
+  "probes" $probes
   "replicas" (ternary nil $v.replicaCount $v.autoscaling.enabled)
   "spread" true
   "storage" true

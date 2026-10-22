@@ -85,8 +85,8 @@ configmap-env.yaml so it also runs under `helm template`.
 {{- end }}
 {{- end }}
 {{- $missing := list }}
-{{- range $known }}
-{{- if not (hasKey $seen .) }}{{ $missing = append $missing . }}{{ end }}
+{{- range $catalog }}
+{{- if not (or .optional (hasKey $seen .name)) }}{{ $missing = append $missing .name }}{{ end }}
 {{- end }}
 {{- if and $v.workers.groups $missing }}
 {{- $errors = append $errors (printf "workers.groups: no group consumes %s; every queue needs exactly one group, or its jobs pile up in Redis." (join ", " (sortAlpha $missing))) }}

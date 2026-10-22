@@ -2233,7 +2233,7 @@
                   "type": "boolean"
                 },
                 "sizeLimit": {
-                  "description": "Size limit of `/dev/shm`.",
+                  "description": "Size limit of `/dev/shm`, as in Appwrite's Docker install. Pages count towards the memory limit only once PostgreSQL writes them.",
                   "type": "string"
                 }
               },
@@ -2610,6 +2610,172 @@
         },
         "terminationGracePeriodSeconds": {
           "description": "Seconds to wait on shutdown.",
+          "type": "integer"
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Tolerations. Empty inherits `defaults.tolerations`."
+        }
+      },
+      "additionalProperties": false
+    },
+    "exiftool": {
+      "type": "object",
+      "properties": {
+        "affinity": {
+          "type": "object",
+          "description": "Affinity. Empty inherits `defaults.affinity`."
+        },
+        "concurrency": {
+          "description": "ExifTool processes per pod, and so images stripped at once (`MAX_CONCURRENT_STRIPS`). Each takes about 50 MiB.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "containerSecurityContext": {
+          "type": "object",
+          "description": "Container security context."
+        },
+        "enabled": {
+          "description": "Deploy ExifTool. Without it, buckets with stripping on keep the metadata of their images.",
+          "type": "boolean"
+        },
+        "extraContainers": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Extra sidecar containers."
+        },
+        "extraEnv": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Extra environment variables, as a list of EnvVar objects."
+        },
+        "extraInitContainers": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Extra init containers."
+        },
+        "extraVolumeMounts": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Extra volume mounts for the main container."
+        },
+        "extraVolumes": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Extra volumes."
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "digest": {
+              "type": "string",
+              "pattern": "^$|^sha256:[a-f0-9]{64}$",
+              "description": "Image digest."
+            },
+            "pullPolicy": {
+              "description": "Image pull policy.",
+              "type": "string",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ]
+            },
+            "registry": {
+              "description": "Image registry.",
+              "type": "string"
+            },
+            "repository": {
+              "description": "Image repository.",
+              "type": "string"
+            },
+            "tag": {
+              "description": "Image tag.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "nodeSelector": {
+          "description": "Node selector. Empty inherits `defaults.nodeSelector`.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "podAnnotations": {
+          "description": "Pod annotations, merged over `defaults.podAnnotations`.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "podLabels": {
+          "description": "Pod labels, merged over `defaults.podLabels`.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "podSecurityContext": {
+          "type": "object",
+          "description": "Pod security context."
+        },
+        "priorityClassName": {
+          "description": "Priority class. Empty inherits `defaults.priorityClassName`.",
+          "type": "string"
+        },
+        "replicaCount": {
+          "description": "Number of replicas.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number"
+                ]
+              }
+            },
+            "limits": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number"
+                ]
+              }
+            },
+            "claims": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "description": "Resource requests and limits."
+        },
+        "terminationGracePeriodSeconds": {
+          "description": "Seconds to wait on shutdown. ExifTool lets requests finish for 30s.",
           "type": "integer"
         },
         "tolerations": {
@@ -4358,6 +4524,15 @@
                   "description": "Endpoint (`_APP_STORAGE_S3_ENDPOINT`), e.g. `https://fsn1.your-objectstorage.com` or `https://<account>.r2.cloudflarestorage.com`. Empty uses AWS S3. Endpoints and regions per provider: docs/storage.md#s3.",
                   "type": "string"
                 },
+                "pathStyle": {
+                  "description": "Whether requests name the bucket in the path (`_APP_STORAGE_S3_PATH_STYLE`): `enabled` when `endpoint` is the bare service, `disabled` when it already addresses the bucket (such as a custom domain pointing at it). Empty lets Appwrite infer it from the endpoint. See docs/storage.md#s3.",
+                  "type": "string",
+                  "enum": [
+                    "",
+                    "enabled",
+                    "disabled"
+                  ]
+                },
                 "region": {
                   "description": "Region (`_APP_STORAGE_S3_REGION`).",
                   "type": "string"
@@ -5445,6 +5620,58 @@
                 "maxCoroutines": {
                   "description": "Concurrent jobs per process (`_APP_WORKER_MAX_COROUTINES`).",
                   "type": "integer",
+                  "minimum": 1
+                },
+                "replicaCount": {
+                  "description": "Replicas.",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "resources": {
+                  "type": "object",
+                  "properties": {
+                    "requests": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      }
+                    },
+                    "limits": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      }
+                    },
+                    "claims": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  },
+                  "additionalProperties": false,
+                  "description": "Resource requests and limits. Empty inherits `workers.resources`."
+                }
+              },
+              "additionalProperties": false
+            },
+            "maintenance": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "description": "Consume the `maintenance` queue. Cleanup of projects nobody used in the last 30 days, in slices the scheduler hands out; each waits while the `deletes` queue is backed up.",
+                  "type": "boolean"
+                },
+                "maxCoroutines": {
+                  "description": "Concurrent jobs per process. Appwrite runs one at a time.",
+                  "type": "integer",
+                  "maximum": 1,
                   "minimum": 1
                 },
                 "replicaCount": {

@@ -50,6 +50,7 @@ on each container (see appwrite.env).
   "_APP_WORKER_SCREENSHOTS_ROUTER" (printf "http://%s" $apiHost)
   "_APP_JOBS_ENDPOINT" (printf "http://%s" $apiHost)
   "_APP_GEO_ENDPOINT" (ternary (printf "http://%s/v1" (include "appwrite.componentName" (dict "root" . "component" "geo"))) "" .Values.geo.enabled)
+  "_APP_EXIFTOOL_HOST" (ternary (printf "http://%s:8080" (include "appwrite.componentName" (dict "root" . "component" "exiftool"))) "" .Values.exiftool.enabled)
   "_APP_AUTOGRAVITY_HOST" (ternary (printf "http://%s:8080" (include "appwrite.componentName" (dict "root" . "component" "autogravity"))) "" .Values.autogravity.enabled)
   "_APP_EMBEDDING" (get $enabled (.Values.embedding.enabled | toString))
   "_APP_EMBEDDING_ENDPOINT" (printf "http://%s:3000/embed" (include "appwrite.componentName" (dict "root" . "component" "embedding")))
@@ -102,6 +103,7 @@ on each container (see appwrite.env).
 {{- $_ := set $computed "_APP_STORAGE_S3_ENDPOINT" $s3.endpoint }}
 {{- $_ := set $computed "_APP_STORAGE_S3_REGION" $s3.region }}
 {{- $_ := set $computed "_APP_STORAGE_S3_BUCKET" $s3.bucket }}
+{{- $_ := set $computed "_APP_STORAGE_S3_PATH_STYLE" $s3.pathStyle }}
 {{- end }}
 
 {{- /* Compute plane (Functions and Sites): the orchestrator runs builds as Jobs, the executor runs executions; build Jobs call back to the API Service */}}

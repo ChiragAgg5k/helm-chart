@@ -91,6 +91,34 @@ tests:
       - equal:
           path: data._APP_STORAGE_S3_BUCKET
           value: appwrite
+      # Appwrite 2.6 infers the style from the endpoint; a bucket named like
+      # the Service would otherwise switch to virtual-hosted requests.
+      - equal:
+          path: data._APP_STORAGE_S3_PATH_STYLE
+          value: enabled
+
+  - it: leaves an external store's path style to Appwrite unless set
+    template: templates/configmap-env.yaml
+    set:
+      storage.s3.mode: external
+      storage.s3.accessKeyId.value: key
+      storage.s3.secretAccessKey.value: secret
+    asserts:
+      - equal:
+          path: data._APP_STORAGE_S3_PATH_STYLE
+          value: ""
+
+  - it: lets an external store set its path style
+    template: templates/configmap-env.yaml
+    set:
+      storage.s3.mode: external
+      storage.s3.accessKeyId.value: key
+      storage.s3.secretAccessKey.value: secret
+      storage.s3.external.pathStyle: disabled
+    asserts:
+      - equal:
+          path: data._APP_STORAGE_S3_PATH_STYLE
+          value: disabled
 
   - it: requires credentials for an external store only
     template: templates/configmap-env.yaml

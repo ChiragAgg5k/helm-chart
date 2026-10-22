@@ -19,7 +19,7 @@ tests:
           value: [php, app/worker.php, all]
       - contains:
           path: spec.template.spec.containers[0].env
-          content: {name: _APP_WORKER_MAX_COROUTINES, value: "78"}
+          content: {name: _APP_WORKER_MAX_COROUTINES, value: "79"}
       - contains:
           path: spec.template.spec.containers[0].env
           content: {name: _APP_WORKERS_NUM, value: "1"}
@@ -104,7 +104,7 @@ tests:
       workers.mode: separate
     asserts:
       - hasDocuments:
-          count: 15
+          count: 16
       - equal:
           path: metadata.name
           value: aw-appwrite-worker-databases
@@ -123,6 +123,12 @@ tests:
         documentSelector:
           path: metadata.name
           value: aw-appwrite-worker-mails
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: [php, app/worker.php, maintenance]
+        documentSelector:
+          path: metadata.name
+          value: aw-appwrite-worker-maintenance
 
   - it: only mounts storage for queues that need it
     template: templates/workers/deployment.yaml
@@ -158,7 +164,7 @@ tests:
       workers.queues.functions.enabled: false
     asserts:
       - hasDocuments:
-          count: 13
+          count: 14
       - equal:
           path: spec.template.spec.containers[0].resources.requests.cpu
           value: 50m
@@ -196,8 +202,9 @@ tests:
           replicaCount: 2
           maxCoroutines: 12
     asserts:
+      # The two groups, and maintenance, which no group lists, on its own.
       - hasDocuments:
-          count: 2
+          count: 3
       - equal:
           path: spec.template.spec.containers[0].command
           value: [php, app/worker.php, "databases,deletes,mails,certificates"]
@@ -214,6 +221,31 @@ tests:
           path: spec.replicas
           value: 2
         documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: aw-appwrite-worker-maintenance
+        documentIndex: 2
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: _APP_WORKER_MAX_COROUTINES, value: "1"}
+        documentIndex: 2
+
+  - it: runs maintenance in the group that lists it
+    template: templates/workers/deployment.yaml
+    set:
+      workers.mode: grouped
+      workers.groups:
+        core:
+          queues: [databases, deletes, maintenance, mails, certificates]
+        usage:
+          queues: [stats-usage, stats-resources]
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: [php, app/worker.php, "databases,deletes,maintenance,mails,certificates"]
+        documentIndex: 0
 
   - it: labels workers for the background NetworkPolicy
     template: templates/workers/deployment.yaml
@@ -228,7 +260,13 @@ tests:
       tasks.scheduler.mode: separate
     asserts:
       - hasDocuments:
-          count: 6
+          count: 7
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: [php, app/cli.php, schedule-maintenance]
+        documentSelector:
+          path: metadata.name
+          value: aw-appwrite-scheduler-maintenance
       - equal:
           path: spec.template.spec.containers[0].command
           value: [php, app/cli.php, stats-resources]
