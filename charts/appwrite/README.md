@@ -595,7 +595,7 @@ The SMTP server Appwrite sends mail through.
 | console.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
 | console.image.registry | string | `"docker.io"` | Image registry. |
 | console.image.repository | string | `"appwrite/new"` | Image repository. |
-| console.image.tag | string | `"1.2.106-self-hosted"` | Image tag. Pinned to the console that ships with the chart's appVersion. |
+| console.image.tag | string | `"1.2.106-self-hosted"` | Image tag. Pinned independently from appVersion so Console security updates can ship separately. |
 | console.livenessProbe.enabled | bool | `true` | Enable the liveness probe. |
 | console.livenessProbe.failureThreshold | int | `3` | Consecutive failures before the probe counts as failed. |
 | console.livenessProbe.periodSeconds | int | `20` | Seconds between probes. |

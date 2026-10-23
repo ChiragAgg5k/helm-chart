@@ -1187,7 +1187,7 @@ console:
     registry: docker.io
     # -- Image repository.
     repository: appwrite/new
-    # -- Image tag. Pinned to the console that ships with the chart's appVersion.
+    # -- Image tag. Pinned independently from appVersion so Console security updates can ship separately.
     tag: 1.2.106-self-hosted
     # -- Image digest.
     digest: ""
