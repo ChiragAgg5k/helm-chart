@@ -93,7 +93,7 @@ annotations:
     - name: builtin-exporter
       image: docker.io/oliver006/redis_exporter:v1.93.0-alpine
     - name: console
-      image: docker.io/appwrite/new:1.2.97-self-hosted
+      image: docker.io/appwrite/new:1.2.106-self-hosted
     - name: dind
       image: docker.io/library/docker:29.9.0-dind
     - name: embedding

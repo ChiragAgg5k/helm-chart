@@ -1188,7 +1188,7 @@ console:
     # -- Image repository.
     repository: appwrite/new
     # -- Image tag. Pinned to the console that ships with the chart's appVersion.
-    tag: 1.2.97-self-hosted
+    tag: 1.2.106-self-hosted
     # -- Image digest.
     digest: ""
     # -- Image pull policy.
