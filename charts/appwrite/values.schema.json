@@ -1730,7 +1730,7 @@
               "type": "string"
             },
             "tag": {
-              "description": "Image tag. Pinned to the console that ships with the chart's appVersion.",
+              "description": "Image tag. Pinned independently from appVersion so Console security updates can ship separately.",
               "type": "string"
             }
           },

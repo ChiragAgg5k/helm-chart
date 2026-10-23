@@ -8,6 +8,11 @@ annotation in `charts/appwrite/Chart.yaml`.
 
 ## [Unreleased]
 
+### Security
+
+- Update the Console image to 1.2.106-self-hosted, which patches DOMPurify
+  to 3.4.17 for GHSA-cg2g-xh64-v4q7 and GHSA-mrv2-3pqr-j5jr.
+
 ## [2.1.0] - 2026-10-22
 
 Appwrite 2.6.1. Upgrading from 2.0.0: see
